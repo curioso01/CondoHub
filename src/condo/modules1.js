@@ -53,6 +53,12 @@ window.Modules.dashboard = {
     const pendPayables = payables.filter(p => p.status !== 'Pago').reduce((acc, p) => acc + (p.amount || 0), 0);
     const liquidezRingPct = pendPayables > 0 ? Math.min(100, Math.round((Math.max(0, caixaAtual) / (pendPayables + 10000)) * 100)) : 92;
 
+    // Dados para os 3 novos cards operacionais do Dashboard
+    const allOverdue = receivables.filter(r => r.status === 'Vencido');
+    const upcomingMaint = (window.Storage.get('preventive_maintenance') || []).slice(0, 3);
+    const todayDateStr = now.toISOString().substring(0, 10);
+    const todayReservations = (window.Storage.get('reservations') || []).filter(r => r.date === todayDateStr);
+
     container.innerHTML = `
       <!-- KPIS -->
       <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:24px;" class="grid-4">
@@ -304,6 +310,112 @@ window.Modules.dashboard = {
             </div>
           </div>
 
+        </div>
+      </div>
+
+      <!-- CARDS OPERACIONAIS DE GESTÃO DIÁRIA -->
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-bottom:24px;" class="grid-3">
+        <!-- 1. INADIMPLENTES DO MÊS -->
+        <div class="card" style="margin-bottom:0; display:flex; flex-direction:column;">
+          <div class="card-header" style="padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:var(--color-danger); display:flex;">${window.UI.icon('alert-octagon', 18)}</span>
+              <h3 class="card-title" style="font-size:14px; font-weight:700;">Inadimplentes do Mês</h3>
+            </div>
+            <span class="badge badge-danger" style="font-size:11px;">${allOverdue.length} ${allOverdue.length === 1 ? 'unidade' : 'unidades'}</span>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; max-height:260px;">
+            ${allOverdue.length === 0 ? `
+              <div style="text-align:center; padding:30px 10px; color:var(--color-text-muted); font-size:12px;">
+                <div style="color:var(--color-secondary); display:flex; justify-content:center; margin-bottom:6px;">
+                  ${window.UI.icon('check-circle', 28)}
+                </div>
+                <p style="font-weight:600; margin:0 0 2px;">Nenhum boleto vencido!</p>
+                <span>A inadimplência do condomínio está sob controle.</span>
+              </div>
+            ` : allOverdue.map(r => `
+              <div style="padding:10px; border-radius:6px; background:var(--color-bg); border:1px solid var(--color-border); display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                  <div>
+                    <span style="font-weight:700; font-size:13px; color:var(--color-text);">Apto ${r.unit}</span>
+                    <span style="font-size:12px; color:var(--color-text-muted); margin-left:4px;">— ${window.Security.sanitize(r.resident)}</span>
+                  </div>
+                  <b style="font-size:13px; color:var(--color-danger);">${window.Security.maskMoney(r.amount)}</b>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--color-text-muted);">
+                  <span>Venc: <b>${r.dueDate}</b></span>
+                  <button class="btn btn-sm btn-outline" style="color:#059669; border-color:#059669; background:rgba(5,150,105,0.06); padding:3px 8px; font-size:11px; display:inline-flex; align-items:center; gap:4px;" onclick="Modules.dashboard.simulateWhatsAppCharge('${r.unit}', '${encodeURIComponent(r.resident)}', ${r.amount})">
+                    ${window.UI.icon('message-circle', 12)} Cobrar via WhatsApp (simulado)
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- 2. PRÓXIMAS MANUTENÇÕES -->
+        <div class="card" style="margin-bottom:0; display:flex; flex-direction:column;">
+          <div class="card-header" style="padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:#7C3AED; display:flex;">${window.UI.icon('wrench', 18)}</span>
+              <h3 class="card-title" style="font-size:14px; font-weight:700;">Próximas Manutenções</h3>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px; padding:2px 6px;" onclick="Router.navigate('maintenance')">Ver todas</button>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; max-height:260px;">
+            ${upcomingMaint.length === 0 ? `
+              <div style="text-align:center; padding:30px 10px; color:var(--color-text-muted); font-size:12px;">
+                <p>Nenhuma manutenção preventiva cadastrada.</p>
+              </div>
+            ` : upcomingMaint.map(pm => `
+              <div style="padding:10px; border-radius:6px; background:var(--color-bg); border:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <b style="font-size:12px; color:var(--color-text); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:180px;">${window.Security.sanitize(pm.equipment)}</b>
+                  <span class="badge ${pm.status === 'Em dia' ? 'badge-success' : (pm.status === 'Proximo' ? 'badge-warning' : 'badge-danger')}" style="font-size:10px;">${pm.status}</span>
+                </div>
+                <div style="font-size:11px; color:var(--color-text-muted); display:flex; justify-content:space-between; align-items:center;">
+                  <span>Fornecedor: <b>${window.Security.sanitize(pm.supplier || 'Interno')}</b></span>
+                  <span>Previsto: <b>${pm.nextDate}</b></span>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- 3. RESERVAS DE HOJE -->
+        <div class="card" style="margin-bottom:0; display:flex; flex-direction:column;">
+          <div class="card-header" style="padding-bottom:10px; margin-bottom:12px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="color:#2563EB; display:flex;">${window.UI.icon('calendar', 18)}</span>
+              <h3 class="card-title" style="font-size:14px; font-weight:700;">Reservas de Hoje</h3>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px; padding:2px 6px;" onclick="Router.navigate('reservations')">Agenda</button>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column; gap:10px; overflow-y:auto; max-height:260px;">
+            ${todayReservations.length === 0 ? `
+              <div style="text-align:center; padding:30px 10px; color:var(--color-text-muted); font-size:12px;">
+                <div style="color:var(--color-primary); display:flex; justify-content:center; margin-bottom:6px;">
+                  ${window.UI.icon('calendar', 28)}
+                </div>
+                <p style="font-weight:600; margin:0 0 2px;">Nenhuma reserva hoje</p>
+                <span>Todas as áreas sociais estão livres para uso comum.</span>
+              </div>
+            ` : todayReservations.map(res => `
+              <div style="padding:10px; border-radius:6px; background:var(--color-bg); border:1px solid var(--color-border); display:flex; flex-direction:column; gap:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                  <b style="font-size:13px; color:var(--color-text);">${window.Security.sanitize(res.areaName || 'Área Comum')}</b>
+                  <span class="badge badge-info" style="font-size:10px;">${res.status}</span>
+                </div>
+                <div style="font-size:12px; color:var(--color-text-muted);">
+                  Horário: <b>${res.timeSlot}</b>
+                </div>
+                <div style="font-size:11px; color:var(--color-text-muted); display:flex; justify-content:space-between;">
+                  <span>Solicitante: <b>${window.Security.sanitize(res.resident)}</b> (Unid. ${res.unit})</span>
+                  ${res.fee > 0 ? `<span style="font-weight:600; color:var(--color-text);">${window.Security.maskMoney(res.fee)}</span>` : '<span style="color:var(--color-secondary);">Gratuito</span>'}
+                </div>
+              </div>
+            `).join('')}
+          </div>
         </div>
       </div>
 
@@ -1221,6 +1333,46 @@ window.Modules.dashboard = {
       content: content,
       buttons: [{ label: 'Fechar', className: 'btn-primary' }]
     });
+  },
+
+  simulateWhatsAppCharge(unit, residentEncoded, amount) {
+    const resident = decodeURIComponent(residentEncoded);
+    const formattedAmount = window.Security.maskMoney(amount);
+    const msg = `Olá ${resident} (Unidade ${unit}), identificamos que a taxa condominial de ${formattedAmount} encontra-se em aberto no sistema. Para obter a linha digitável, código PIX ou a 2ª via atualizada com isenção de novos encargos, acesse o Portal do Condômino ou responda esta mensagem diretamente. Conte conosco! — Administração CondoHub`;
+
+    window.UI.modal({
+      title: 'Disparo de Cobrança WhatsApp (Simulação)',
+      size: 'md',
+      content: `
+        <div style="display:flex; align-items:flex-start; gap:12px; margin-bottom:16px;">
+          <div style="width:40px; height:40px; border-radius:8px; background:#DCFCE7; color:#15803D; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            ${window.UI.icon('message-circle', 22)}
+          </div>
+          <div>
+            <h4 style="font-size:14px; font-weight:700; margin:0 0 4px;">Notificação Amigável de Inadimplência</h4>
+            <p style="font-size:12px; color:var(--color-text-muted); margin:0;">Destinatário: <b>${window.Security.sanitize(resident)}</b> • Apto <b>${unit}</b></p>
+          </div>
+        </div>
+        <div style="background:var(--color-bg); border-radius:8px; padding:12px; border:1px solid var(--color-border); margin-bottom:14px;">
+          <label style="font-size:11px; font-weight:700; text-transform:uppercase; color:var(--color-text-muted); display:block; margin-bottom:6px;">Mensagem Formatada:</label>
+          <p style="font-size:13px; line-height:1.5; color:var(--color-text); margin:0;">${msg}</p>
+        </div>
+        <div style="font-size:12px; color:var(--color-text-muted);">
+          ℹ️ Mensagem em conformidade com o código de ética condominial e LGPD.
+        </div>
+      `,
+      buttons: [
+        {
+          label: 'Enviar via WhatsApp (Simulado)',
+          className: 'btn-secondary',
+          onClick: () => {
+            window.Audit.log('COBRANCA_WHATSAPP', 'financial', `Cobrança amigável via WhatsApp enviada para ${resident} (${unit}) - ${formattedAmount}`);
+            window.UI.toast(`Cobrança amigável enviada para ${resident} (Unid. ${unit}) com sucesso!`, 'success');
+          }
+        },
+        { label: 'Fechar', className: 'btn-outline' }
+      ]
+    });
   }
 };
 
@@ -1237,6 +1389,9 @@ window.Modules.financial = {
         </button>
         <button class="tab-btn ${this.currentTab === 'pagar' ? 'active' : ''}" onclick="Modules.financial.switchTab('pagar')">
           ${window.UI.icon('arrow-up-right', 16)} Contas a Pagar
+        </button>
+        <button class="tab-btn ${this.currentTab === 'multas' ? 'active' : ''}" onclick="Modules.financial.switchTab('multas')">
+          ${window.UI.icon('alert-octagon', 16)} Multas & Advertências
         </button>
         <button class="tab-btn ${this.currentTab === 'extrato' ? 'active' : ''}" onclick="Modules.financial.switchTab('extrato')">
           ${window.UI.icon('list', 16)} Extrato Bancário
@@ -1263,6 +1418,7 @@ window.Modules.financial = {
     if (!el) return;
     if (this.currentTab === 'receber') this.renderReceivables(el);
     else if (this.currentTab === 'pagar') this.renderPayables(el);
+    else if (this.currentTab === 'multas') this.renderFines(el);
     else if (this.currentTab === 'extrato') this.renderStatement(el);
     else if (this.currentTab === 'orcamento') this.renderBudget(el);
   },
@@ -2037,5 +2193,696 @@ window.Modules.financial = {
     `;
 
     if (window.lucide) window.lucide.createIcons();
+  },
+
+  // ============================================================
+  // GESTÃO DE MULTAS & ADVERTÊNCIAS (INFRAÇÕES E REGULAMENTO)
+  // ============================================================
+
+  INFRACTIONS_CATALOG: [
+    'Barulho excessivo e perturbação do sossego após 22h (Art. 42)',
+    'Uso irregular de vaga de garagem ou obstrução da via interna (Art. 18)',
+    'Descarte irregular de entulho/lixo em áreas comuns (Art. 27)',
+    'Animais soltos sem coleira/guia em áreas sociais restritas (Art. 35)',
+    'Alteração de padrão de fachada/esquadria sem aprovação prévia (Art. 12)',
+    'Uso indevido ou dano ao mobiliário e área de lazer (Art. 50)',
+    'Excesso de velocidade nas vias internas do condomínio (Art. 60)',
+    'Dano ou vandalismo ao patrimônio coletivo predial (Art. 64)',
+    'Realização de obras em horários não permitidos (Art. 31)',
+    'Fumar em áreas comuns fechadas (Lei Antifumo e Regulamento) (Art. 72)'
+  ],
+
+  initFines() {
+    let fines = window.Storage.get('fines');
+    if (!fines || !Array.isArray(fines) || fines.length === 0) {
+      fines = [
+        {
+          id: 'fn-001',
+          unit: 'A202',
+          resident: 'Mariana Duarte Souza',
+          type: '1ª Advertência',
+          infraction: 'Barulho excessivo e perturbação do sossego após 22h (Art. 42)',
+          amount: 0,
+          infractionDate: '2026-09-08',
+          notifiedAt: '2026-09-09',
+          description: 'Som em volume excessivo com diversas reclamações de vizinhos dos apartamentos A102 e A302.',
+          status: 'Notificado'
+        },
+        {
+          id: 'fn-002',
+          unit: 'B104',
+          resident: 'Lucas Nogueira Pinheiro',
+          type: '2ª Advertência',
+          infraction: 'Uso irregular de vaga de garagem ou obstrução da via interna (Art. 18)',
+          amount: 0,
+          infractionDate: '2026-09-12',
+          notifiedAt: '2026-09-13',
+          description: 'Veículo estacionado sobre a faixa de circulação de pedestres impedindo manobras na vaga B105.',
+          status: 'Notificado'
+        },
+        {
+          id: 'fn-003',
+          unit: 'A202',
+          resident: 'Mariana Duarte Souza',
+          type: 'Multa',
+          infraction: 'Barulho excessivo e perturbação do sossego após 22h (Art. 42)',
+          amount: 400,
+          infractionDate: '2026-09-18',
+          notifiedAt: '2026-09-19',
+          description: 'Reincidência constatada de festividade ruidosa de madrugada. Aplicação de multa de 50% da cota condominial.',
+          status: 'Confirmado'
+        }
+      ];
+      window.Storage.set('fines', fines);
+    }
+    return fines;
+  },
+
+  renderFines(container) {
+    const fines = this.initFines();
+    const residents = window.Storage.get('residents') || [];
+
+    const filterStatus = this._finesFilterStatus || 'Todos';
+    const filterUnit = this._finesFilterUnit || 'Todas';
+    const searchQuery = (this._finesSearchQuery || '').toLowerCase();
+
+    const totalWarnings = fines.filter(f => f.type.includes('Advertência') && f.status !== 'Cancelado').length;
+    const totalFines = fines.filter(f => f.type === 'Multa' && f.status !== 'Cancelado').length;
+    const totalFinesAmount = fines.filter(f => f.type === 'Multa' && f.status !== 'Cancelado').reduce((acc, f) => acc + (f.amount || 0), 0);
+    const paidFines = fines.filter(f => f.status === 'Pago').length;
+
+    const filtered = fines.filter(f => {
+      if (filterStatus !== 'Todos' && f.status !== filterStatus) return false;
+      if (filterUnit !== 'Todas' && f.unit !== filterUnit) return false;
+      if (searchQuery) {
+        const text = `${f.unit} ${f.resident} ${f.infraction} ${f.type} ${f.description}`.toLowerCase();
+        if (!text.includes(searchQuery)) return false;
+      }
+      return true;
+    });
+
+    const uniqueUnits = [...new Set(residents.map(r => r.unit))].sort();
+
+    container.innerHTML = `
+      <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:20px;" class="grid-4">
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:12px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase;">Advertências Aplicadas</span>
+          <h3 style="font-size:24px; color:#D97706; margin-top:4px;">${totalWarnings}</h3>
+          <span style="font-size:11px; color:var(--color-text-muted);">1ª e 2ª advertências ativas</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:12px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase;">Multas Emitidas</span>
+          <h3 style="font-size:24px; color:var(--color-danger); margin-top:4px;">${totalFines}</h3>
+          <span style="font-size:11px; color:var(--color-text-muted);">Com valor financeiro lançado</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:12px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase;">Volume de Multas</span>
+          <h3 style="font-size:24px; color:var(--color-primary); margin-top:4px;">${window.Security.maskMoney(totalFinesAmount)}</h3>
+          <span style="font-size:11px; color:var(--color-text-muted);">Integrado ao Contas a Receber</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:12px; color:var(--color-text-muted); font-weight:600; text-transform:uppercase;">Multas Liquidadas</span>
+          <h3 style="font-size:24px; color:var(--color-secondary); margin-top:4px;">${paidFines} / ${totalFines}</h3>
+          <span style="font-size:11px; color:var(--color-text-muted);">${totalFines > 0 ? Math.round((paidFines / totalFines) * 100) : 0}% de resolução</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+          <div>
+            <h3 class="card-title" style="margin:0 0 4px; display:flex; align-items:center; gap:8px;">
+              ${window.UI.icon('alert-octagon', 18)} Gestão de Multas & Advertências
+            </h3>
+            <p style="font-size:12px; color:var(--color-text-muted); margin:0;">
+              Fluxo formal automatizado: <b>1ª Advertência</b> ➔ <b>2ª Advertência</b> ➔ <b>Multa Pecuniária</b> (Art. 1.336/1.337 CC)
+            </p>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <button class="btn btn-primary btn-sm" onclick="Modules.financial.modalNovaMulta()">
+              ${window.UI.icon('plus', 14)} Nova Advertência / Multa
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-bottom:16px; flex-wrap:wrap; align-items:center; background:var(--color-bg); padding:10px; border-radius:8px; border:1px solid var(--color-border);">
+          <div style="flex:1; min-width:180px;">
+            <input type="text" id="fines-search-input" class="form-control" placeholder="Buscar por morador, infração, apto..." value="${window.Security.sanitize(this._finesSearchQuery || '')}" oninput="Modules.financial.onFinesSearch(this.value)" />
+          </div>
+          <div style="width:160px;">
+            <select class="form-control" onchange="Modules.financial.onFinesFilterStatus(this.value)">
+              <option value="Todos" ${filterStatus === 'Todos' ? 'selected' : ''}>Status: Todos</option>
+              <option value="Notificado" ${filterStatus === 'Notificado' ? 'selected' : ''}>Notificado</option>
+              <option value="Recorrido" ${filterStatus === 'Recorrido' ? 'selected' : ''}>Recorrido</option>
+              <option value="Confirmado" ${filterStatus === 'Confirmado' ? 'selected' : ''}>Confirmado</option>
+              <option value="Pago" ${filterStatus === 'Pago' ? 'selected' : ''}>Pago</option>
+              <option value="Cancelado" ${filterStatus === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+            </select>
+          </div>
+          <div style="width:140px;">
+            <select class="form-control" onchange="Modules.financial.onFinesFilterUnit(this.value)">
+              <option value="Todas" ${filterUnit === 'Todas' ? 'selected' : ''}>Unidade: Todas</option>
+              ${uniqueUnits.map(u => `<option value="${u}" ${filterUnit === u ? 'selected' : ''}>Apto ${u}</option>`).join('')}
+            </select>
+          </div>
+          ${(filterStatus !== 'Todos' || filterUnit !== 'Todas' || searchQuery) ? `
+            <button class="btn btn-ghost btn-sm" onclick="Modules.financial.clearFinesFilters()">Limpar filtros</button>
+          ` : ''}
+        </div>
+
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Unidade & Morador</th>
+                <th>Grau / Tipo</th>
+                <th>Infração ao Regulamento</th>
+                <th>Valor</th>
+                <th>Data Fato</th>
+                <th>Notificado em</th>
+                <th>Status</th>
+                <th style="text-align:right;">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.length === 0 ? `
+                <tr>
+                  <td colspan="8" style="text-align:center; padding:32px; color:var(--color-text-muted);">
+                    Nenhuma advertência ou multa encontrada com os filtros selecionados.
+                  </td>
+                </tr>
+              ` : filtered.map(fn => {
+                const isFine = fn.type === 'Multa';
+                const badgeClass = fn.type === '1ª Advertência' ? 'badge-info' : (fn.type === '2ª Advertência' ? 'badge-warning' : 'badge-danger');
+                const statusBadge = fn.status === 'Pago' ? 'badge-success' : (fn.status === 'Confirmado' ? 'badge-danger' : (fn.status === 'Recorrido' ? 'badge-warning' : (fn.status === 'Cancelado' ? 'badge-muted' : 'badge-info')));
+
+                return `
+                  <tr>
+                    <td>
+                      <b>Apto ${fn.unit}</b>
+                      <div style="font-size:12px; color:var(--color-text-muted);">${window.Security.sanitize(fn.resident)}</div>
+                    </td>
+                    <td>
+                      <span class="badge ${badgeClass}" style="font-weight:700;">${fn.type}</span>
+                    </td>
+                    <td>
+                      <span style="font-size:12px; font-weight:600; color:var(--color-text);">${window.Security.sanitize(fn.infraction)}</span>
+                      <p style="font-size:11px; color:var(--color-text-muted); margin:2px 0 0; max-width:240px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                        ${window.Security.sanitize(fn.description)}
+                      </p>
+                    </td>
+                    <td>
+                      <b style="font-size:13px; color:${isFine ? 'var(--color-danger)' : 'var(--color-text-muted)'};">
+                        ${fn.amount > 0 ? window.Security.maskMoney(fn.amount) : 'R$ 0,00'}
+                      </b>
+                    </td>
+                    <td style="font-size:12px;">${fn.infractionDate}</td>
+                    <td style="font-size:12px;">${fn.notifiedAt}</td>
+                    <td>
+                      <span class="badge ${statusBadge}">${fn.status}</span>
+                    </td>
+                    <td style="text-align:right; white-space:nowrap;">
+                      <button class="btn btn-sm btn-outline" onclick="Modules.financial.modalVerMulta('${fn.id}')" title="Ver Notificação Formal">
+                        ${window.UI.icon('file-text', 13)} Ver
+                      </button>
+                      <button class="btn btn-sm btn-outline" onclick="Modules.financial.verHistoricoUnidade('${fn.unit}')" title="Histórico da Unidade">
+                        ${window.UI.icon('history', 13)}
+                      </button>
+                      ${fn.status !== 'Pago' && fn.status !== 'Cancelado' ? `
+                        <button class="btn btn-sm btn-secondary" onclick="Modules.financial.modalAlterarStatusMulta('${fn.id}')" title="Atualizar Status">
+                          ${window.UI.icon('check', 13)}
+                        </button>
+                      ` : ''}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+
+    if (window.lucide) window.lucide.createIcons();
+  },
+
+  onFinesSearch(val) {
+    this._finesSearchQuery = val;
+    const el = document.getElementById('financial-tab-content');
+    if (el) this.renderFines(el);
+  },
+
+  onFinesFilterStatus(val) {
+    this._finesFilterStatus = val;
+    const el = document.getElementById('financial-tab-content');
+    if (el) this.renderFines(el);
+  },
+
+  onFinesFilterUnit(val) {
+    this._finesFilterUnit = val;
+    const el = document.getElementById('financial-tab-content');
+    if (el) this.renderFines(el);
+  },
+
+  clearFinesFilters() {
+    this._finesFilterStatus = 'Todos';
+    this._finesFilterUnit = 'Todas';
+    this._finesSearchQuery = '';
+    const el = document.getElementById('financial-tab-content');
+    if (el) this.renderFines(el);
+  },
+
+  getSuggestedTypeForUnit(unit) {
+    const fines = window.Storage.get('fines') || [];
+    const activeUnitFines = fines.filter(f => f.unit === unit && f.status !== 'Cancelado');
+    const count = activeUnitFines.length;
+
+    if (count === 0) {
+      return {
+        type: '1ª Advertência',
+        amount: 0,
+        count: 0,
+        explanation: 'Primeira ocorrência para esta unidade: 1ª Advertência formal sem aplicação de multa.'
+      };
+    } else if (count === 1) {
+      return {
+        type: '2ª Advertência',
+        amount: 0,
+        count: 1,
+        explanation: 'Unidade possui 1 advertência anterior: 2ª Advertência (último aviso antes de multa pecuniária).'
+      };
+    } else {
+      return {
+        type: 'Multa',
+        amount: 400,
+        count: count,
+        explanation: `Unidade reincidente (${count} registros ativos): Aplicação direta de MULTA PECUNIÁRIA recomendada!`
+      };
+    }
+  },
+
+  modalNovaMulta(unitPrefill = null) {
+    const residents = window.Storage.get('residents') || [];
+    const defaultUnit = unitPrefill || (residents[0] ? residents[0].unit : 'A101');
+    const residentObj = residents.find(r => r.unit === defaultUnit) || { name: 'Morador' };
+    const suggestion = this.getSuggestedTypeForUnit(defaultUnit);
+    const today = new Date().toISOString().substring(0, 10);
+
+    const content = `
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label class="form-label">Unidade (Apartamento) *</label>
+            <select id="fine-unit" class="form-control" onchange="Modules.financial.onUnitChangeInModal(this.value)">
+              ${residents.map(r => `<option value="${r.unit}" ${r.unit === defaultUnit ? 'selected' : ''}>Apto ${r.unit} - ${window.Security.sanitize(r.name)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Morador Responsável *</label>
+            <input type="text" id="fine-resident" class="form-control" value="${window.Security.sanitize(residentObj.name)}" readonly style="background:var(--color-bg);" />
+          </div>
+        </div>
+
+        <!-- BOX DO FLUXO AUTOMATIZADO / RECOMENDAÇÃO -->
+        <div id="fine-escalation-box" style="padding:10px 12px; border-radius:6px; background:rgba(37,99,235,0.08); border:1px solid rgba(37,99,235,0.2); font-size:12px; color:var(--color-primary);">
+          ${window.UI.icon('info', 14)} <span id="fine-escalation-text"><b>Fluxo automático:</b> ${suggestion.explanation}</span>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label class="form-label">Grau / Tipo de Notificação *</label>
+            <select id="fine-type" class="form-control" onchange="Modules.financial.onFineTypeChange(this.value)">
+              <option value="1ª Advertência" ${suggestion.type === '1ª Advertência' ? 'selected' : ''}>1ª Advertência (Sem multa)</option>
+              <option value="2ª Advertência" ${suggestion.type === '2ª Advertência' ? 'selected' : ''}>2ª Advertência (Último aviso)</option>
+              <option value="Multa" ${suggestion.type === 'Multa' ? 'selected' : ''}>Multa (Com valor financeiro)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Valor da Multa (R$)</label>
+            <input type="number" id="fine-amount" class="form-control" value="${suggestion.amount}" ${suggestion.type !== 'Multa' ? 'disabled' : ''} step="50" min="0" placeholder="0.00" />
+            <span style="font-size:10px; color:var(--color-text-muted);">Taxa padrão: R$ 400,00 (50% da cota)</span>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Infração ao Regulamento Interno *</label>
+          <select id="fine-infraction" class="form-control">
+            ${this.INFRACTIONS_CATALOG.map(inf => `<option value="${inf}">${inf}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div>
+            <label class="form-label">Data do Fato (Infração) *</label>
+            <input type="date" id="fine-date" class="form-control" value="${today}" />
+          </div>
+          <div>
+            <label class="form-label">Data da Notificação *</label>
+            <input type="date" id="fine-notified-at" class="form-control" value="${today}" />
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label">Descrição Circunstanciada dos Fatos *</label>
+          <textarea id="fine-description" class="form-control" rows="3" placeholder="Descreva os fatos detalhadamente, testemunhas, registros de portaria ou imagens de câmeras..."></textarea>
+        </div>
+      </div>
+    `;
+
+    window.UI.modal({
+      title: 'Emitir Nova Advertência ou Multa',
+      size: 'md',
+      content: content,
+      buttons: [
+        {
+          label: 'Emitir Notificação',
+          className: 'btn-primary',
+          onClick: () => {
+            const unit = document.getElementById('fine-unit').value;
+            const resident = document.getElementById('fine-resident').value;
+            const type = document.getElementById('fine-type').value;
+            const amountInput = document.getElementById('fine-amount').value;
+            const infraction = document.getElementById('fine-infraction').value;
+            const infractionDate = document.getElementById('fine-date').value;
+            const notifiedAt = document.getElementById('fine-notified-at').value;
+            const description = document.getElementById('fine-description').value.trim();
+
+            if (!description) {
+              window.UI.toast('Por favor, informe a descrição dos fatos.', 'danger');
+              return;
+            }
+
+            const cleanUnit = window.Security.sanitize(unit);
+            const cleanResident = window.Security.sanitize(resident);
+            const cleanType = window.Security.sanitize(type);
+            const cleanInfraction = window.Security.sanitize(infraction);
+            const cleanDescription = window.Security.sanitize(description);
+            const numAmount = cleanType === 'Multa' ? (parseFloat(amountInput) || 400) : 0;
+
+            const newFine = {
+              id: 'fn-' + Date.now(),
+              unit: cleanUnit,
+              resident: cleanResident,
+              type: cleanType,
+              infraction: cleanInfraction,
+              amount: numAmount,
+              infractionDate: infractionDate,
+              notifiedAt: notifiedAt,
+              description: cleanDescription,
+              status: cleanType === 'Multa' ? 'Confirmado' : 'Notificado'
+            };
+
+            const fines = window.Storage.get('fines') || [];
+            fines.unshift(newFine);
+            window.Storage.set('fines', fines);
+
+            // Integração automática com Contas a Receber caso seja multa pecuniária
+            if (cleanType === 'Multa' && numAmount > 0) {
+              const receivables = window.Storage.get('receivables') || [];
+              const recDueDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10);
+              receivables.push({
+                id: 'rec_fine_' + newFine.id,
+                unit: cleanUnit,
+                resident: cleanResident,
+                description: `Multa: ${cleanInfraction.split('(')[0].trim()}`,
+                amount: numAmount,
+                dueDate: recDueDate,
+                status: 'Pendente',
+                ref: new Date().toISOString().substring(0, 7)
+              });
+              window.Storage.set('receivables', receivables);
+            }
+
+            // Notificação em tempo real no app
+            if (window.Notifications && window.Notifications.add) {
+              window.Notifications.add({
+                title: `${cleanType} aplicada na Unidade ${cleanUnit}`,
+                message: `${cleanResident} foi notificado: ${cleanInfraction}`,
+                type: 'warning',
+                link: '#financial'
+              });
+            }
+
+            // Registro no Log de Auditoria
+            window.Audit.log(
+              'NOVA_INFRACAO',
+              'financial',
+              `${cleanType} aplicada para Unidade ${cleanUnit} (${cleanResident}) - ${cleanInfraction}`
+            );
+
+            window.UI.toast(`${cleanType} gerada com sucesso para a Unidade ${cleanUnit}!`, 'success');
+            const el = document.getElementById('financial-tab-content');
+            if (el) this.renderFines(el);
+          }
+        },
+        { label: 'Cancelar', className: 'btn-outline' }
+      ]
+    });
+  },
+
+  onUnitChangeInModal(unit) {
+    const residents = window.Storage.get('residents') || [];
+    const res = residents.find(r => r.unit === unit);
+    const resInput = document.getElementById('fine-resident');
+    if (resInput && res) resInput.value = res.name;
+
+    const suggestion = this.getSuggestedTypeForUnit(unit);
+    const typeSelect = document.getElementById('fine-type');
+    const amountInput = document.getElementById('fine-amount');
+    const boxText = document.getElementById('fine-escalation-text');
+
+    if (typeSelect) typeSelect.value = suggestion.type;
+    if (amountInput) {
+      amountInput.value = suggestion.amount;
+      amountInput.disabled = suggestion.type !== 'Multa';
+    }
+    if (boxText) {
+      boxText.innerHTML = `<b>Fluxo automático:</b> ${suggestion.explanation}`;
+    }
+  },
+
+  onFineTypeChange(type) {
+    const amountInput = document.getElementById('fine-amount');
+    if (amountInput) {
+      if (type === 'Multa') {
+        amountInput.disabled = false;
+        if (!parseFloat(amountInput.value)) amountInput.value = 400;
+      } else {
+        amountInput.disabled = true;
+        amountInput.value = 0;
+      }
+    }
+  },
+
+  verHistoricoUnidade(unit) {
+    const fines = (window.Storage.get('fines') || []).filter(f => f.unit === unit);
+    const occurrences = (window.Storage.get('occurrences') || []).filter(o => o.unit === unit);
+    const residents = window.Storage.get('residents') || [];
+    const res = residents.find(r => r.unit === unit) || { name: 'Morador da Unidade' };
+
+    const content = `
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--color-bg); padding:12px; border-radius:8px; border:1px solid var(--color-border);">
+          <div>
+            <h4 style="margin:0; font-size:15px; font-weight:700;">Prontuário Disciplinar • Unidade ${unit}</h4>
+            <p style="margin:2px 0 0; font-size:12px; color:var(--color-text-muted);">Responsável: <b>${window.Security.sanitize(res.name)}</b></p>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="Modules.financial.modalNovaMulta('${unit}')">
+            ${window.UI.icon('plus', 13)} Nova Notificação
+          </button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <h5 style="font-size:13px; font-weight:700; margin:0 0 8px; color:var(--color-text);">Histórico de Advertências e Multas (${fines.length})</h5>
+        ${fines.length === 0 ? `
+          <div style="padding:16px; text-align:center; font-size:12px; color:var(--color-text-muted); background:var(--color-bg); border-radius:6px;">
+            Nenhuma advertência ou multa registrada para esta unidade.
+          </div>
+        ` : `
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${fines.map((f, i) => `
+              <div style="padding:10px 12px; border-radius:6px; border:1px solid var(--color-border); background:var(--color-bg); display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="badge ${f.type === '1ª Advertência' ? 'badge-info' : (f.type === '2ª Advertência' ? 'badge-warning' : 'badge-danger')}">${f.type}</span>
+                    <b style="font-size:13px;">${window.Security.sanitize(f.infraction)}</b>
+                  </div>
+                  <p style="font-size:12px; color:var(--color-text-muted); margin:4px 0 0;">${window.Security.sanitize(f.description)}</p>
+                  <div style="font-size:11px; color:var(--color-text-muted); margin-top:4px;">
+                    Data do fato: <b>${f.infractionDate}</b> • Notificado em: <b>${f.notifiedAt}</b>
+                  </div>
+                </div>
+                <div style="text-align:right;">
+                  <b style="font-size:13px; color:${f.amount > 0 ? 'var(--color-danger)' : 'var(--color-text-muted)'};">
+                    ${f.amount > 0 ? window.Security.maskMoney(f.amount) : 'Sem valor pecuniário'}
+                  </b>
+                  <div style="margin-top:4px;">
+                    <span class="badge ${f.status === 'Pago' ? 'badge-success' : (f.status === 'Confirmado' ? 'badge-danger' : 'badge-info')}">${f.status}</span>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+
+      <div>
+        <h5 style="font-size:13px; font-weight:700; margin:0 0 8px; color:var(--color-text);">Ocorrências Envolvendo a Unidade (${occurrences.length})</h5>
+        ${occurrences.length === 0 ? `
+          <div style="padding:12px; text-align:center; font-size:12px; color:var(--color-text-muted); background:var(--color-bg); border-radius:6px;">
+            Nenhuma ocorrência registrada no livro de portaria.
+          </div>
+        ` : `
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${occurrences.map(o => `
+              <div style="padding:8px 12px; border-radius:6px; border:1px solid var(--color-border); font-size:12px; display:flex; justify-content:space-between;">
+                <div>
+                  <b>${window.Security.sanitize(o.title)}</b> (${o.category})
+                  <span style="color:var(--color-text-muted); margin-left:6px;">- ${o.date}</span>
+                </div>
+                <span class="badge badge-muted">${o.status}</span>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+    `;
+
+    window.UI.modal({
+      title: `Prontuário Disciplinar - Apto ${unit}`,
+      size: 'lg',
+      content: content,
+      buttons: [{ label: 'Fechar', className: 'btn-primary' }]
+    });
+  },
+
+  modalVerMulta(fineId) {
+    const fines = window.Storage.get('fines') || [];
+    const fn = fines.find(f => f.id === fineId);
+    if (!fn) return;
+
+    const condo = window.Storage.get('condo') || {};
+
+    const content = `
+      <div id="print-fine-notification" style="border:1px solid var(--color-border); padding:20px; border-radius:8px; background:var(--color-bg);">
+        <div style="text-align:center; border-bottom:2px solid var(--color-border); padding-bottom:12px; margin-bottom:16px;">
+          <h3 style="margin:0; font-size:16px; font-weight:800; text-transform:uppercase;">${window.Security.sanitize(condo.name || 'Residencial das Palmeiras')}</h3>
+          <p style="margin:2px 0 0; font-size:12px; color:var(--color-text-muted);">CNPJ: ${condo.cnpj || '12.345.678/0001-90'} • Gestão Administrativa Oficial</p>
+          <div style="display:inline-block; margin-top:8px; padding:4px 12px; border-radius:4px; font-weight:700; font-size:13px; text-transform:uppercase; background:${fn.type === 'Multa' ? '#FEE2E2; color:#991B1B;' : '#FEF3C7; color:#92400E;'}">
+            NOTIFICAÇÃO FORMAL: ${fn.type}
+          </div>
+        </div>
+
+        <div style="font-size:13px; line-height:1.6; display:flex; flex-direction:column; gap:10px;">
+          <p><b>À Unidade:</b> Apto ${fn.unit} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Destinatário:</b> ${window.Security.sanitize(fn.resident)}</p>
+          <p><b>Data da Infração:</b> ${fn.infractionDate} &nbsp;&nbsp;|&nbsp;&nbsp; <b>Data de Expedição:</b> ${fn.notifiedAt}</p>
+          <p><b>Infração Tipificada:</b> <span style="font-weight:700; color:var(--color-danger);">${window.Security.sanitize(fn.infraction)}</span></p>
+
+          <div style="background:var(--color-surface); padding:12px; border-radius:6px; border:1px solid var(--color-border); margin:8px 0;">
+            <b style="display:block; margin-bottom:4px; font-size:12px; text-transform:uppercase; color:var(--color-text-muted);">Histórico Circunstanciado dos Fatos:</b>
+            <p style="margin:0; font-style:italic;">"${window.Security.sanitize(fn.description)}"</p>
+          </div>
+
+          ${fn.type === 'Multa' ? `
+            <div style="padding:10px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; color:#1E40AF; font-size:12px;">
+              <b>Penalidade Pecuniária:</b> Valor de <b>${window.Security.maskMoney(fn.amount)}</b> lançado na cota condominial, com vencimento em 15 dias.
+            </div>
+          ` : `
+            <div style="padding:10px; background:#FEF3C7; border:1px solid #FDE68A; border-radius:6px; color:#92400E; font-size:12px;">
+              <b>Advertência Educativa:</b> Não há imposição pecuniária nesta notificação. Solicitamos a imediata cessação da conduta sob pena de aplicação de multa na próxima reincidência.
+            </div>
+          `}
+
+          <p style="font-size:11px; color:var(--color-text-muted); margin-top:12px;">
+            Fica assegurado ao condômino o prazo de 10 (dez) dias corridos para interposição de recurso por escrito direcionado ao Conselho Consultivo/Fiscal e ao Síndico.
+          </p>
+        </div>
+      </div>
+    `;
+
+    window.UI.modal({
+      title: `Notificação Formal - ${fn.type} (Apto ${fn.unit})`,
+      size: 'md',
+      content: content,
+      buttons: [
+        {
+          label: 'Imprimir / Salvar PDF',
+          className: 'btn-secondary',
+          onClick: () => {
+            window.print();
+          }
+        },
+        { label: 'Fechar', className: 'btn-outline' }
+      ]
+    });
+  },
+
+  modalAlterarStatusMulta(fineId) {
+    const fines = window.Storage.get('fines') || [];
+    const fn = fines.find(f => f.id === fineId);
+    if (!fn) return;
+
+    const content = `
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size:13px; margin:0;">
+          Alterando o status da infração para a <b>Unidade ${fn.unit}</b> (${fn.type}):
+        </p>
+        <div>
+          <label class="form-label">Novo Status</label>
+          <select id="modal-fine-status" class="form-control">
+            <option value="Notificado" ${fn.status === 'Notificado' ? 'selected' : ''}>Notificado</option>
+            <option value="Recorrido" ${fn.status === 'Recorrido' ? 'selected' : ''}>Recorrido (Aguardando análise de recurso)</option>
+            <option value="Confirmado" ${fn.status === 'Confirmado' ? 'selected' : ''}>Confirmado (Recurso rejeitado ou prazo esgotado)</option>
+            <option value="Pago" ${fn.status === 'Pago' ? 'selected' : ''}>Pago (Multa liquidada)</option>
+            <option value="Cancelado" ${fn.status === 'Cancelado' ? 'selected' : ''}>Cancelado (Advertência/Multa anulada)</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Observações da Atualização</label>
+          <textarea id="modal-fine-notes" class="form-control" rows="2" placeholder="Motivo da alteração de status ou decisão do recurso..."></textarea>
+        </div>
+      </div>
+    `;
+
+    window.UI.modal({
+      title: 'Atualizar Status da Notificação',
+      size: 'sm',
+      content: content,
+      buttons: [
+        {
+          label: 'Salvar Alteração',
+          className: 'btn-primary',
+          onClick: () => {
+            const newStatus = document.getElementById('modal-fine-status').value;
+            const notes = document.getElementById('modal-fine-notes').value.trim();
+
+            fn.status = newStatus;
+            if (notes) {
+              fn.description += ` [Atualização ${new Date().toISOString().substring(0, 10)}: Status alterado para ${newStatus} - ${window.Security.sanitize(notes)}]`;
+            }
+            window.Storage.set('fines', fines);
+
+            // Atualiza status no contas a receber se houver
+            if (fn.type === 'Multa') {
+              const receivables = window.Storage.get('receivables') || [];
+              const rec = receivables.find(r => r.id === 'rec_fine_' + fn.id);
+              if (rec) {
+                if (newStatus === 'Pago') rec.status = 'Pago';
+                if (newStatus === 'Cancelado') rec.status = 'Cancelado';
+                window.Storage.set('receivables', receivables);
+              }
+            }
+
+            window.Audit.log('STATUS_MULTA', 'financial', `Status da infração ${fn.id} (Apto ${fn.unit}) alterado para ${newStatus}`);
+            window.UI.toast(`Status atualizado para '${newStatus}' com sucesso!`, 'success');
+
+            const el = document.getElementById('financial-tab-content');
+            if (el) this.renderFines(el);
+          }
+        },
+        { label: 'Cancelar', className: 'btn-outline' }
+      ]
+    });
   }
 };
+// === FIM DO modules1.js ===

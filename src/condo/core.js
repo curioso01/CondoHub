@@ -296,6 +296,7 @@ window.PERMISSIONS = {
   reservations:  ['SUPER_ADMIN', 'SINDICO', 'CONSELHEIRO', 'MORADOR', 'PORTEIRO'],
   occurrences:   ['SUPER_ADMIN', 'SINDICO', 'CONSELHEIRO', 'MORADOR', 'PORTEIRO'],
   registry:      ['SUPER_ADMIN', 'SINDICO'],
+  reports:       ['SUPER_ADMIN', 'SINDICO', 'CONSELHEIRO'],
   settings:      ['SUPER_ADMIN', 'SINDICO'],
   portal:        ['MORADOR']
 };
@@ -305,7 +306,8 @@ window.Auth = {
     { id: 'u1', name: 'Carlos Mendonça', email: 'sindico@condohub.com', passwordHash: btoa('salt_condo_' + 'Sindico@2024'), role: 'SINDICO', avatar: 'CM', condoId: 'c1' },
     { id: 'u2', name: 'Ana Paula Ramos', email: 'morador@condohub.com', passwordHash: btoa('salt_condo_' + 'Morador@2024'), role: 'MORADOR', avatar: 'AP', condoId: 'c1', unitId: 'A101' },
     { id: 'u3', name: 'Roberto Silva', email: 'porteiro@condohub.com', passwordHash: btoa('salt_condo_' + 'Porteiro@2024'), role: 'PORTEIRO', avatar: 'RS', condoId: 'c1' },
-    { id: 'u4', name: 'Admin Sistema', email: 'admin@condohub.com', passwordHash: btoa('salt_condo_' + 'Admin@2024'), role: 'SUPER_ADMIN', avatar: 'AD', condoId: 'c1' }
+    { id: 'u4', name: 'Admin Sistema', email: 'admin@condohub.com', passwordHash: btoa('salt_condo_' + 'Admin@2024'), role: 'SUPER_ADMIN', avatar: 'AD', condoId: 'c1' },
+    { id: 'u5', name: 'Eduardo Silveira Santos', email: 'conselheiro@condohub.com', passwordHash: btoa('salt_condo_' + 'Conselho@2024'), role: 'CONSELHEIRO', avatar: 'ES', condoId: 'c1', unitId: 'C101' }
   ],
 
   _attempts: {},
@@ -724,6 +726,7 @@ window.Router = {
       reservations: 'Reservas de Áreas Comuns',
       occurrences: 'Ocorrências & Ouvidoria',
       registry: 'Cadastro do Condomínio',
+      reports: 'Prestação de Contas & Relatórios',
       settings: 'Configurações do Sistema',
       portal: 'Portal do Condômino'
     };
@@ -770,6 +773,9 @@ window.Router = {
     }
     this.renderSidebar();
     this.renderHeaderUser();
+    if (window.Notifications) {
+      window.Notifications.init();
+    }
   },
 
   renderSidebar() {
@@ -847,6 +853,25 @@ window.Router = {
           ${window.UI.icon('bell', 18)} <span>Mural de Comunicados</span>
         </a>
       `;
+    } else if (user.role === 'CONSELHEIRO') {
+      nav.innerHTML = `
+        <div class="nav-section-title">Conselho Fiscal</div>
+        <a class="nav-item" data-module="financial" onclick="Router.navigate('financial')">
+          ${window.UI.icon('dollar-sign', 18)} <span>Gestão Financeira</span>
+        </a>
+        <a class="nav-item" data-module="reports" onclick="Router.navigate('reports')">
+          ${window.UI.icon('file-text', 18)} <span>Prestação de Contas</span>
+        </a>
+        <a class="nav-item" data-module="assemblies" onclick="Router.navigate('assemblies')">
+          ${window.UI.icon('users', 18)} <span>Assembleias & Atas</span>
+        </a>
+        <a class="nav-item" data-module="occurrences" onclick="Router.navigate('occurrences')">
+          ${window.UI.icon('alert-triangle', 18)} <span>Livro de Ocorrências</span>
+        </a>
+        <a class="nav-item" data-module="settings" onclick="Router.navigate('settings')">
+          ${window.UI.icon('settings', 18)} <span>Configurações & Auditoria</span>
+        </a>
+      `;
     } else {
       // Síndico e Administradores com privilégios completos
       let items = [];
@@ -877,6 +902,9 @@ window.Router = {
       }
       if (window.Auth.hasPermission(user.role, 'registry')) {
         items.push(`<a class="nav-item" data-module="registry" onclick="Router.navigate('registry')">${window.UI.icon('building-2', 18)} <span>Cadastro Geral</span></a>`);
+      }
+      if (window.Auth.hasPermission(user.role, 'reports')) {
+        items.push(`<a class="nav-item" data-module="reports" onclick="Router.navigate('reports')">${window.UI.icon('file-text', 18)} <span>Prestação de Contas</span></a>`);
       }
       if (window.Auth.hasPermission(user.role, 'settings')) {
         items.push(`<a class="nav-item" data-module="settings" onclick="Router.navigate('settings')">${window.UI.icon('settings', 18)} <span>Configurações & Auditoria</span></a>`);
@@ -921,5 +949,491 @@ window.Router = {
     } else {
       this.showLogin();
     }
+    if (window.Notifications) {
+      window.Notifications.init();
+    }
   }
 };
+
+// ==========================================
+// SISTEMA DE NOTIFICAÇÕES IN-APP (EM TEMPO REAL)
+// ==========================================
+window.Notifications = {
+  get() {
+    return window.Storage.get('notifications') || [];
+  },
+
+  set(list) {
+    window.Storage.set('notifications', list);
+    this.updateBadge();
+  },
+
+  sync() {
+    let list = this.get();
+    let hasChanges = false;
+    const existingIds = new Set(list.map(n => n.id));
+
+    const now = new Date();
+    const threeDaysFromNow = new Date(now.getTime() + (3 * 24 * 60 * 60 * 1000));
+    const nowStr = now.toISOString().substring(0, 10);
+    const threeDaysStr = threeDaysFromNow.toISOString().substring(0, 10);
+
+    // 1. Cobranças / Receivables vencendo em 3 dias ou vencidas
+    const receivables = window.Storage.get('receivables') || [];
+    receivables.forEach(r => {
+      if (r.status === 'Pendente' || r.status === 'Vencido') {
+        const isExpiring = r.dueDate <= threeDaysStr;
+        if (isExpiring) {
+          const id = 'notif_rec_' + r.id;
+          if (!existingIds.has(id)) {
+            const isOverdue = r.dueDate < nowStr || r.status === 'Vencido';
+            list.unshift({
+              id,
+              type: 'financeiro',
+              title: isOverdue ? 'Boleto Vencido' : 'Boleto Vencendo em 3 Dias',
+              message: `Unidade ${r.unit} (${window.Security.sanitize(r.resident)}): ${r.description} - ${window.Security.maskMoney(r.amount)} com vencimento em ${r.dueDate}.`,
+              date: r.dueDate,
+              read: false,
+              module: 'financial',
+              sub: 'receber'
+            });
+            existingIds.add(id);
+            hasChanges = true;
+          }
+        }
+      }
+    });
+
+    // 2. Ocorrências abertas / em análise
+    const occurrences = window.Storage.get('occurrences') || [];
+    occurrences.forEach(o => {
+      if (o.status !== 'Resolvida' && o.status !== 'Arquivada') {
+        const id = 'notif_occ_' + o.id;
+        if (!existingIds.has(id)) {
+          list.unshift({
+            id,
+            type: 'ocorrência',
+            title: `Nova Ocorrência: ${window.Security.sanitize(o.title || o.category || 'Aberto')}`,
+            message: `Unidade ${o.complainingUnit || o.unit || 'Geral'}: ${(o.description || '').substring(0, 80)}...`,
+            date: o.date || nowStr,
+            read: false,
+            module: 'occurrences',
+            sub: null
+          });
+          existingIds.add(id);
+          hasChanges = true;
+        }
+      }
+    });
+
+    // 3. Reservas aprovadas / confirmadas / recusadas
+    const reservations = window.Storage.get('reservations') || [];
+    reservations.forEach(res => {
+      const id = 'notif_res_' + res.id + '_' + res.status;
+      if (!existingIds.has(id)) {
+        list.unshift({
+          id,
+          type: 'reserva',
+          title: `Reserva ${res.status}: ${res.areaName || 'Área Comum'}`,
+          message: `Data: ${res.date} • Horário: ${res.timeSlot} • Solicitante: ${res.resident} (${res.unit})`,
+          date: res.date || nowStr,
+          read: false,
+          module: 'reservations',
+          sub: null
+        });
+        existingIds.add(id);
+        hasChanges = true;
+      }
+    });
+
+    // 4. Manutenções / OS muda de status
+    const orders = window.Storage.get('maintenance_orders') || [];
+    orders.forEach(ord => {
+      const id = 'notif_ord_' + ord.id + '_' + (ord.status || ord.column);
+      if (!existingIds.has(id)) {
+        list.unshift({
+          id,
+          type: 'manutenção',
+          title: `OS ${ord.status || 'Atualizada'}: ${window.Security.sanitize(ord.title)}`,
+          message: `Local: ${ord.area || 'Predial'} • Fornecedor: ${ord.supplier || 'Equipe Interna'} • Prioridade: ${ord.priority || 'Normal'}`,
+          date: ord.date || nowStr,
+          read: false,
+          module: 'maintenance',
+          sub: 'orders'
+        });
+        existingIds.add(id);
+        hasChanges = true;
+      }
+    });
+
+    if (hasChanges || !window.Storage.get('notifications')) {
+      if (list.length > 50) list.length = 50;
+      window.Storage.set('notifications', list);
+    }
+
+    this.updateBadge();
+    return list;
+  },
+
+  add(notif) {
+    const list = this.get();
+    const newNotif = {
+      id: notif.id || ('notif_' + Date.now() + '_' + Math.floor(Math.random() * 1000)),
+      type: notif.type || 'geral',
+      title: notif.title || 'Notificação',
+      message: notif.message || '',
+      date: notif.date || new Date().toISOString().substring(0, 10),
+      read: false,
+      module: notif.module || 'dashboard',
+      sub: notif.sub || null
+    };
+    list.unshift(newNotif);
+    if (list.length > 50) list.length = 50;
+    this.set(list);
+  },
+
+  getUnreadCount() {
+    const list = this.get();
+    return list.filter(n => !n.read).length;
+  },
+
+  markAllAsRead() {
+    const list = this.get().map(n => ({ ...n, read: true }));
+    this.set(list);
+    window.UI.toast('Todas as notificações foram marcadas como lidas.', 'info');
+    const modalEl = document.getElementById('notifications-modal-list');
+    if (modalEl) {
+      this.renderListInModal(modalEl);
+    }
+  },
+
+  markAsRead(id) {
+    const list = this.get().map(n => n.id === id ? { ...n, read: true } : n);
+    this.set(list);
+    const modalEl = document.getElementById('notifications-modal-list');
+    if (modalEl) {
+      this.renderListInModal(modalEl);
+    }
+  },
+
+  updateBadge() {
+    const unread = this.getUnreadCount();
+    const badge = document.getElementById('notification-badge-dot') || document.getElementById('header-notifications-badge');
+    if (badge) {
+      if (unread > 0) {
+        badge.style.display = 'flex';
+        badge.textContent = unread > 99 ? '99+' : unread;
+        badge.style.cssText = 'position:absolute; top:2px; right:2px; min-width:18px; height:18px; padding:0 4px; border-radius:10px; background:var(--color-danger); color:#FFFFFF; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid var(--color-surface); pointer-events:none; z-index:2;';
+      } else {
+        badge.style.display = 'none';
+        badge.textContent = '';
+      }
+    }
+  },
+
+  getTypeInfo(type) {
+    const map = {
+      financeiro: { icon: 'dollar-sign', color: '#DC2626', bg: '#FEE2E2', label: 'Financeiro' },
+      ocorrência: { icon: 'alert-triangle', color: '#D97706', bg: '#FEF3C7', label: 'Ocorrência' },
+      reserva: { icon: 'calendar', color: '#2563EB', bg: '#DBEAFE', label: 'Reserva' },
+      manutenção: { icon: 'wrench', color: '#7C3AED', bg: '#EDE9FE', label: 'Manutenção' }
+    };
+    return map[type] || { icon: 'bell', color: '#4B5563', bg: '#F3F4F6', label: 'Geral' };
+  },
+
+  renderListInModal(container) {
+    const list = this.get();
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:32px 16px; color:var(--color-text-muted);">
+          <div style="width:48px; height:48px; border-radius:50%; background:var(--color-bg); display:flex; align-items:center; justify-content:center; margin:0 auto 12px; color:var(--color-text-muted);">
+            ${window.UI.icon('bell', 24)}
+          </div>
+          <p style="font-weight:600; font-size:14px; margin-bottom:4px;">Nenhuma notificação no momento</p>
+          <p style="font-size:12px;">Você está em dia com todas as novidades do condomínio.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map(item => {
+      const info = this.getTypeInfo(item.type);
+      const isUnread = !item.read;
+      return `
+        <div class="notification-item" style="display:flex; gap:12px; padding:12px; border-bottom:1px solid var(--color-border); border-radius:6px; cursor:pointer; background:${isUnread ? 'rgba(37,99,235,0.05)' : 'transparent'}; transition:background 150ms;" onclick="window.Notifications.handleItemClick('${item.id}', '${item.module}', '${item.sub || ''}')">
+          <div style="width:36px; height:36px; border-radius:8px; background:${info.bg}; color:${info.color}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            ${window.UI.icon(info.icon, 18)}
+          </div>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span class="badge" style="font-size:10px; background:${info.bg}; color:${info.color}; font-weight:700;">${info.label}</span>
+                <b style="font-size:13px; color:var(--color-text);">${window.Security.sanitize(item.title)}</b>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:11px; color:var(--color-text-muted); white-space:nowrap;">${item.date}</span>
+                ${isUnread ? '<span style="width:8px; height:8px; border-radius:50%; background:var(--color-primary); display:inline-block;" title="Não lida"></span>' : ''}
+              </div>
+            </div>
+            <p style="font-size:12px; color:var(--color-text-muted); margin:4px 0 0; line-height:1.4;">${window.Security.sanitize(item.message)}</p>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (window.lucide) window.lucide.createIcons();
+  },
+
+  handleItemClick(id, module, sub) {
+    this.markAsRead(id);
+    const backdrop = document.querySelector('.modal-backdrop');
+    if (backdrop) backdrop.remove();
+    if (window.Router) {
+      window.Router.navigate(module, sub || null);
+    }
+  },
+
+  openModal() {
+    this.sync();
+    const unread = this.getUnreadCount();
+    const content = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid var(--color-border);">
+        <span style="font-size:13px; color:var(--color-text-muted);">
+          <b>${unread}</b> ${unread === 1 ? 'não lida' : 'não lidas'}
+        </span>
+        <button class="btn btn-sm btn-outline" onclick="window.Notifications.markAllAsRead()">
+          Marcar todas como lidas
+        </button>
+      </div>
+      <div id="notifications-modal-list" style="max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;">
+      </div>
+    `;
+
+    window.UI.modal({
+      title: 'Notificações do Condomínio',
+      size: 'md',
+      content: content,
+      buttons: [
+        { label: 'Fechar', className: 'btn-outline' }
+      ]
+    });
+
+    setTimeout(() => {
+      const listEl = document.getElementById('notifications-modal-list');
+      if (listEl) this.renderListInModal(listEl);
+    }, 50);
+  },
+
+  init() {
+    this.sync();
+    this.updateBadge();
+    window.addEventListener('condohub_storage', (e) => {
+      if (e.detail && ['receivables', 'occurrences', 'reservations', 'maintenance_orders'].includes(e.detail.key)) {
+        this.sync();
+      }
+    });
+  }
+};
+
+// ==========================================
+// PESQUISA GLOBAL FUNCIONAL MULTI-MÓDULOS
+// ==========================================
+window.openGlobalSearchModal = function() {
+  const content = `
+    <div style="margin-bottom:14px;">
+      <input type="text" id="global-search-input" class="form-control" placeholder="Buscar morador, unidade, boleto, ocorrência, OS, comunicado, visitante..." oninput="window.executeGlobalSearch(this.value)" autofocus style="font-size:14px; padding:10px 14px;" />
+    </div>
+    <div id="global-search-results" style="max-height:360px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;">
+      <p style="font-size:12px; color:var(--color-text-muted); text-align:center; padding:24px 0;">
+        Digite ao menos 3 caracteres para pesquisar em tempo real em todo o sistema.
+      </p>
+    </div>
+  `;
+
+  window.UI.modal({
+    title: 'Pesquisa Global no Condomínio',
+    size: 'lg',
+    content: content,
+    buttons: [
+      { label: 'Fechar', className: 'btn-outline' }
+    ]
+  });
+
+  setTimeout(() => {
+    const inp = document.getElementById('global-search-input');
+    if (inp) inp.focus();
+  }, 100);
+};
+
+window.executeGlobalSearch = function(query) {
+  const resEl = document.getElementById('global-search-results');
+  if (!resEl) return;
+  query = (query || '').toLowerCase().trim();
+
+  if (query.length < 3) {
+    resEl.innerHTML = '<p style="font-size:12px; color:var(--color-text-muted); text-align:center; padding:24px 0;">Digite ao menos 3 caracteres para pesquisar em tempo real em todo o sistema.</p>';
+    return;
+  }
+
+  const groups = {
+    residents: { title: 'Moradores & Unidades', icon: 'users', color: '#2563EB', items: [] },
+    receivables: { title: 'Contas a Receber & Boletos', icon: 'dollar-sign', color: '#0E9F6E', items: [] },
+    occurrences: { title: 'Livro de Ocorrências', icon: 'alert-triangle', color: '#D97706', items: [] },
+    work_orders: { title: 'Ordens de Serviço & Manutenção', icon: 'wrench', color: '#7C3AED', items: [] },
+    announcements: { title: 'Mural de Comunicados', icon: 'bell', color: '#0284C7', items: [] },
+    visitors: { title: 'Portaria & Visitantes', icon: 'shield', color: '#DC2626', items: [] }
+  };
+
+  // 1. residents (nome, unidade)
+  const residents = window.Storage.get('residents') || [];
+  residents.forEach(r => {
+    const nameMatch = (r.name || '').toLowerCase().includes(query);
+    const unitMatch = (r.unit || '').toLowerCase().includes(query);
+    if (nameMatch || unitMatch) {
+      groups.residents.items.push({
+        title: `${r.name} (${r.unit})`,
+        subtitle: `Bloco ${r.block || '-'} • Telefone: ${window.Security.maskPhone(r.phone || '')} • ${r.role || 'Morador'}`,
+        badge: r.status || 'Ativo',
+        badgeType: r.status === 'Inadimplente' ? 'danger' : 'success',
+        module: 'registry',
+        sub: 'residents'
+      });
+    }
+  });
+
+  // 2. receivables (morador, unidade)
+  const receivables = window.Storage.get('receivables') || [];
+  receivables.forEach(rec => {
+    const resMatch = (rec.resident || '').toLowerCase().includes(query);
+    const unitMatch = (rec.unit || '').toLowerCase().includes(query);
+    const descMatch = (rec.description || '').toLowerCase().includes(query);
+    if (resMatch || unitMatch || descMatch) {
+      groups.receivables.items.push({
+        title: `${rec.unit} — ${rec.resident}`,
+        subtitle: `${rec.description || 'Taxa'} • Vencimento: ${rec.dueDate} • Valor: ${window.Security.maskMoney(rec.amount)}`,
+        badge: rec.status || 'Pendente',
+        badgeType: rec.status === 'Pago' ? 'success' : (rec.status === 'Vencido' ? 'danger' : 'warning'),
+        module: 'financial',
+        sub: 'receber'
+      });
+    }
+  });
+
+  // 3. occurrences (descrição)
+  const occurrences = window.Storage.get('occurrences') || [];
+  occurrences.forEach(occ => {
+    const descMatch = (occ.description || '').toLowerCase().includes(query);
+    const titleMatch = (occ.title || '').toLowerCase().includes(query);
+    if (descMatch || titleMatch) {
+      groups.occurrences.items.push({
+        title: occ.title || `Ocorrência Unidade ${occ.complainingUnit || occ.unit || 'Comum'}`,
+        subtitle: `${(occ.description || '').substring(0, 90)}... • Data: ${occ.date || '-'}`,
+        badge: occ.status || 'Aberta',
+        badgeType: occ.status === 'Resolvida' ? 'success' : (occ.priority === 'Urgente' ? 'danger' : 'warning'),
+        module: 'occurrences',
+        sub: null
+      });
+    }
+  });
+
+  // 4. work_orders / maintenance_orders (título)
+  const orders = window.Storage.get('maintenance_orders') || [];
+  orders.forEach(ord => {
+    const titleMatch = (ord.title || '').toLowerCase().includes(query);
+    const suppMatch = (ord.supplier || '').toLowerCase().includes(query);
+    if (titleMatch || suppMatch) {
+      groups.work_orders.items.push({
+        title: ord.title,
+        subtitle: `Local: ${ord.area || 'Predial'} • Fornecedor: ${ord.supplier || 'Interno'} • Previsão: ${ord.date || '-'}`,
+        badge: ord.status || 'Pendente',
+        badgeType: ord.status === 'Concluída' ? 'success' : 'info',
+        module: 'maintenance',
+        sub: 'orders'
+      });
+    }
+  });
+
+  // 5. announcements (título)
+  const announcements = window.Storage.get('announcements') || [];
+  announcements.forEach(ann => {
+    const titleMatch = (ann.title || '').toLowerCase().includes(query);
+    const contentMatch = (ann.content || '').toLowerCase().includes(query);
+    if (titleMatch || contentMatch) {
+      groups.announcements.items.push({
+        title: ann.title,
+        subtitle: `${ann.category || 'Geral'} • Data: ${ann.date || '-'} • ${(ann.content || '').substring(0, 80)}...`,
+        badge: ann.priority || 'Normal',
+        badgeType: ann.priority === 'Alta' ? 'danger' : 'info',
+        module: 'communications',
+        sub: null
+      });
+    }
+  });
+
+  // 6. visitors (nome)
+  const visitors = window.Storage.get('visitors') || [];
+  visitors.forEach(vis => {
+    const nameMatch = (vis.name || '').toLowerCase().includes(query);
+    const unitMatch = (vis.unit || '').toLowerCase().includes(query);
+    if (nameMatch || unitMatch) {
+      groups.visitors.items.push({
+        title: `${vis.name} → Unidade ${vis.unit}`,
+        subtitle: `Tipo: ${vis.type || 'Visitante'} • Entrada: ${vis.entryDate || vis.date || '-'} ${vis.entryTime || vis.time || ''} • Doc: ${vis.doc || '-'}`,
+        badge: vis.status || 'Dentro',
+        badgeType: vis.status === 'Dentro' ? 'info' : 'muted',
+        module: 'access',
+        sub: 'visitors'
+      });
+    }
+  });
+
+  const activeGroups = Object.values(groups).filter(g => g.items.length > 0);
+
+  if (activeGroups.length === 0) {
+    resEl.innerHTML = `<p style="font-size:12px; color:var(--color-text-muted); text-align:center; padding:24px 0;">Nenhum resultado encontrado para "<b>${window.Security.sanitize(query)}</b>".</p>`;
+    return;
+  }
+
+  resEl.innerHTML = activeGroups.map(g => `
+    <div style="background:var(--color-bg); border-radius:8px; padding:12px; border:1px solid var(--color-border);">
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--color-border);">
+        <span style="color:${g.color}; display:flex;">${window.UI.icon(g.icon, 16)}</span>
+        <b style="font-size:12px; text-transform:uppercase; color:var(--color-text-muted); letter-spacing:0.5px;">${g.title} (${g.items.length})</b>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:4px;">
+        ${g.items.map(item => `
+          <div class="search-result-item" style="padding:8px 10px; border-radius:6px; background:var(--color-surface); cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:12px; transition:all 150ms;" onclick="window.handleGlobalSearchResultClick('${item.module}', '${item.sub || ''}')">
+            <div style="min-width:0; flex:1;">
+              <div style="display:flex; align-items:center; gap:6px;">
+                <b style="font-size:13px; color:var(--color-text);">${window.Security.sanitize(item.title)}</b>
+                ${item.badge ? `<span class="badge badge-${item.badgeType}" style="font-size:10px;">${item.badge}</span>` : ''}
+              </div>
+              <p style="font-size:11px; color:var(--color-text-muted); margin:2px 0 0; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${window.Security.sanitize(item.subtitle)}</p>
+            </div>
+            <span style="font-size:11px; color:var(--color-primary); font-weight:600; white-space:nowrap; display:flex; align-items:center; gap:4px;">
+              Acessar ${window.UI.icon('arrow-right', 12)}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+
+  if (window.lucide) window.lucide.createIcons();
+};
+
+window.handleGlobalSearchResultClick = function(module, sub) {
+  const backdrop = document.querySelector('.modal-backdrop');
+  if (backdrop) backdrop.remove();
+  if (window.Router) {
+    window.Router.navigate(module, sub || null);
+  }
+};
+
+window.openNotificationsModal = function() {
+  if (window.Notifications) {
+    window.Notifications.openModal();
+  }
+};
+
+// === FIM DO core.js ===

@@ -764,131 +764,294 @@ window.Modules.residents_portal = {
 window.Modules.portal = window.Modules.residents_portal;
 
 window.Modules.reports = {
+  selectedMonth: '2026-09',
+
+  onMonthChange(newRef) {
+    this.selectedMonth = newRef;
+    const container = document.getElementById('main-content');
+    if (container) this.render(container);
+  },
+
   render(container) {
     const condo = window.Storage.get('condo') || {};
-    const months = window.Storage.get('financial_months') || [];
+    const receivables = window.Storage.get('receivables') || [];
+    const payables = window.Storage.get('payables') || [];
+    const financialMonths = window.Storage.get('financial_months') || [];
+    const reservations = window.Storage.get('reservations') || [];
+    const fines = window.Storage.get('fines') || [];
+
+    const monthNames = {
+      '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+      '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+      '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+    };
+
+    const availableMonths = [
+      '2026-10', '2026-09', '2026-08', '2026-07', '2026-06', '2026-05',
+      '2026-04', '2026-03', '2026-02', '2026-01'
+    ];
+
+    if (!availableMonths.includes(this.selectedMonth)) {
+      this.selectedMonth = '2026-09';
+    }
+
+    const [selYear, selMonth] = this.selectedMonth.split('-');
+    const formattedMonthLabel = `${monthNames[selMonth] || 'Mês'} / ${selYear}`;
+
+    // 1. Receitas do mês selecionado
+    const monthReceivables = receivables.filter(r => r.ref === this.selectedMonth || (r.dueDate && r.dueDate.startsWith(this.selectedMonth)));
+    const paidRec = monthReceivables.filter(r => r.status === 'Pago');
+    const pendingRec = monthReceivables.filter(r => r.status !== 'Pago');
+
+    const finMonthData = financialMonths.find(m => m.ref === this.selectedMonth);
+
+    // Cálculos dinâmicos
+    const ordinariasPagas = paidRec.filter(r => !r.description?.includes('Multa')).reduce((acc, r) => acc + (r.amount || 0), 0);
+    const ordinariasTotal = ordinariasPagas > 0 ? ordinariasPagas : (finMonthData ? Math.round(finMonthData.revenue * 0.90) : 35200);
+    const fundoReserva = Math.round(ordinariasTotal * 0.05);
+
+    const monthReservations = reservations.filter(res => res.date && res.date.startsWith(this.selectedMonth) && res.status === 'Confirmada');
+    const locacoesAmount = monthReservations.reduce((acc, res) => acc + (res.fee || 0), 0) || 1200;
+
+    const multasAmount = fines.filter(f => f.status === 'Pago' && f.infractionDate?.startsWith(this.selectedMonth)).reduce((acc, f) => acc + (f.amount || 0), 0) || 400;
+
+    const totalReceitas = finMonthData ? finMonthData.revenue : (ordinariasTotal + fundoReserva + locacoesAmount + multasAmount);
+    const totalInadimplencia = pendingRec.reduce((acc, r) => acc + (r.amount || 0), 0);
+
+    // 2. Despesas pagas do mês selecionado
+    const monthPayables = payables.filter(p => (p.dueDate && p.dueDate.startsWith(this.selectedMonth)) || (p.paidAt && p.paidAt.startsWith(this.selectedMonth)));
+    const paidPay = monthPayables.filter(p => p.status === 'Pago');
+
+    let catPessoal = 0;
+    let catConcessionarias = 0;
+    let catManutencao = 0;
+    let catAdministrativo = 0;
+    let catOutras = 0;
+
+    if (paidPay.length > 0) {
+      paidPay.forEach(p => {
+        const cat = (p.category || '').toLowerCase();
+        if (cat.includes('pessoal') || cat.includes('folha') || cat.includes('zelador') || cat.includes('rh')) {
+          catPessoal += p.amount;
+        } else if (cat.includes('concessionária') || cat.includes('água') || cat.includes('energia') || cat.includes('luz') || cat.includes('gás')) {
+          catConcessionarias += p.amount;
+        } else if (cat.includes('manuten') || cat.includes('elevador') || cat.includes('bomba') || cat.includes('conservação')) {
+          catManutencao += p.amount;
+        } else if (cat.includes('admin') || cat.includes('gestão') || cat.includes('honorário') || cat.includes('sistema') || cat.includes('seguro')) {
+          catAdministrativo += p.amount;
+        } else {
+          catOutras += p.amount;
+        }
+      });
+    }
+
+    const totalDespesasBase = finMonthData ? finMonthData.expenses : (paidPay.reduce((acc, p) => acc + p.amount, 0) || 28900);
+    if (catPessoal === 0 && catConcessionarias === 0 && catManutencao === 0) {
+      catPessoal = Math.round(totalDespesasBase * 0.42);
+      catConcessionarias = Math.round(totalDespesasBase * 0.20);
+      catManutencao = Math.round(totalDespesasBase * 0.18);
+      catAdministrativo = Math.round(totalDespesasBase * 0.14);
+      catOutras = totalDespesasBase - (catPessoal + catConcessionarias + catManutencao + catAdministrativo);
+    }
+    const totalDespesas = catPessoal + catConcessionarias + catManutencao + catAdministrativo + catOutras;
+
+    // 3. Saldo anterior e atual
+    const baseFund = 42000;
+    const priorMonths = financialMonths.filter(m => m.ref < this.selectedMonth);
+    const priorAccumulated = priorMonths.reduce((acc, m) => acc + (m.revenue || 0) - (m.expenses || 0), baseFund);
+    const saldoAnterior = priorAccumulated;
+    const superavitMes = totalReceitas - totalDespesas;
+    const saldoAtual = saldoAnterior + superavitMes;
+    const isSuperavit = superavitMes >= 0;
 
     container.innerHTML = `
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
         <div>
           <h3 class="card-title">${window.UI.icon('file-text', 20)} Prestação de Contas & Balancete Oficial</h3>
-          <p style="font-size:13px; color:var(--color-text-muted);">Demonstrativo Financeiro Consolidado e Balancetes Mensais do Síndico.</p>
+          <p style="font-size:13px; color:var(--color-text-muted);">Demonstrativo Contábil Analítico e Parecer Conclusivo do Conselho Fiscal.</p>
         </div>
-        <div style="display:flex; gap:8px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <!-- SELETOR DINÂMICO DE MÊS/ANO -->
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:12px; font-weight:700; text-transform:uppercase; color:var(--color-text-muted);">Competência:</label>
+            <select id="balancete-month-select" class="form-control" style="width:190px; height:34px; font-weight:600; font-size:13px;" onchange="Modules.reports.onMonthChange(this.value)">
+              ${availableMonths.map(m => {
+                const [y, mm] = m.split('-');
+                return `<option value="${m}" ${m === this.selectedMonth ? 'selected' : ''}>${monthNames[mm]} / ${y}</option>`;
+              }).join('')}
+            </select>
+          </div>
           <button class="btn btn-outline btn-sm" onclick="window.print()">
             ${window.UI.icon('printer', 14)} Imprimir Balancete
           </button>
-          <button class="btn btn-primary btn-sm" onclick="window.UI.toast('Relatório oficial PDF gerado e enviado aos conselheiros!', 'success')">
-            ${window.UI.icon('download', 14)} Exportar Dossiê Completo
+          <button class="btn btn-primary btn-sm" onclick="window.UI.toast('Dossiê contábil em PDF compilado e enviado para os membros do conselho!', 'success')">
+            ${window.UI.icon('download', 14)} Exportar Dossiê
           </button>
         </div>
       </div>
 
-      <!-- BALANCETE FORMAL -->
-      <div class="card" style="background:#FFF; color:#000; padding:24px;">
-        <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:12px; margin-bottom:16px;">
+      <!-- CARDS RESUMO DO PERÍODO -->
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:14px; margin-bottom:20px;" class="grid-4">
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:11px; color:var(--color-text-muted); font-weight:700; text-transform:uppercase;">Saldo Anterior</span>
+          <h4 style="font-size:18px; color:var(--color-text); margin-top:4px;">${window.Security.maskMoney(saldoAnterior)}</h4>
+          <span style="font-size:10px; color:var(--color-text-muted);">Acumulado até o mês anterior</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:11px; color:var(--color-text-muted); font-weight:700; text-transform:uppercase;">Receitas Realizadas</span>
+          <h4 style="font-size:18px; color:var(--color-secondary); margin-top:4px;">+ ${window.Security.maskMoney(totalReceitas)}</h4>
+          <span style="font-size:10px; color:var(--color-text-muted);">Total liquidado no mês</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:11px; color:var(--color-text-muted); font-weight:700; text-transform:uppercase;">Despesas Pagas</span>
+          <h4 style="font-size:18px; color:var(--color-danger); margin-top:4px;">- ${window.Security.maskMoney(totalDespesas)}</h4>
+          <span style="font-size:10px; color:var(--color-text-muted);">Custos operacionais quitados</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:11px; color:var(--color-text-muted); font-weight:700; text-transform:uppercase;">Resultado Operacional</span>
+          <h4 style="font-size:18px; color:${isSuperavit ? 'var(--color-secondary)' : 'var(--color-danger)'}; margin-top:4px;">
+            ${isSuperavit ? '+' : ''}${window.Security.maskMoney(superavitMes)}
+          </h4>
+          <span style="font-size:10px; color:var(--color-text-muted); font-weight:600;">${isSuperavit ? 'Superávit do Mês' : 'Déficit do Mês'}</span>
+        </div>
+        <div class="card" style="margin-bottom:0;">
+          <span style="font-size:11px; color:var(--color-text-muted); font-weight:700; text-transform:uppercase;">Saldo Atual Consolidado</span>
+          <h4 style="font-size:18px; color:var(--color-primary); margin-top:4px;">${window.Security.maskMoney(saldoAtual)}</h4>
+          <span style="font-size:10px; color:var(--color-text-muted);">Disponível em contas e fundos</span>
+        </div>
+      </div>
+
+      <!-- BALANCETE FORMAL IMPRESSÃO -->
+      <div class="card" style="background:#FFFFFF; color:#0F172A; padding:28px; border:1px solid #CBD5E1; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+        <!-- CABEÇALHO DO DOCUMENTO -->
+        <div style="display:flex; justify-content:space-between; border-bottom:2px solid #0F172A; padding-bottom:14px; margin-bottom:18px;">
           <div>
-            <h2 style="font-size:18px; margin:0;">${condo.name}</h2>
-            <p style="font-size:12px; margin:2px 0 0;">CNPJ: ${condo.cnpj} • ${condo.address}, ${condo.city}/${condo.state}</p>
+            <h2 style="font-size:20px; font-weight:800; margin:0; text-transform:uppercase; color:#0F172A;">${window.Security.sanitize(condo.name || 'Residencial das Palmeiras')}</h2>
+            <p style="font-size:12px; margin:3px 0 0; color:#475569;">
+              CNPJ: ${condo.cnpj || '12.345.678/0001-90'} • ${window.Security.sanitize(condo.address || 'Av. Paulista, 1000')}, ${condo.city || 'São Paulo'}/${condo.state || 'SP'}
+            </p>
           </div>
           <div style="text-align:right;">
-            <b style="font-size:16px;">BALANCETE MENSAL</b><br>
-            <span style="font-size:12px;">Competência: Setembro / 2026</span>
+            <b style="font-size:17px; text-transform:uppercase; color:#0F172A;">DEMONSTRATIVO DE BALANCETE</b><br>
+            <span style="font-size:13px; font-weight:700; color:#2563EB;">Competência: ${formattedMonthLabel}</span>
           </div>
         </div>
 
-        <!-- CONCILIAÇÃO BANCÁRIA -->
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;" class="grid-2">
-          <!-- RECEITAS -->
+        <!-- CONCILIAÇÃO BANCÁRIA: RECEITAS E DESPESAS -->
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px;" class="grid-2">
+          <!-- 1. RECEITAS -->
           <div>
-            <h4 style="font-size:14px; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:8px;">1. RECEITAS ARRECADADAS</h4>
-            <div style="font-size:12px; line-height:1.8;">
-              <div style="display:flex; justify-content:space-between;">
-                <span>Taxas Condominiais Ordinárias (44 unidades)</span>
-                <b>R$ 35.200,00</b>
+            <h4 style="font-size:13px; font-weight:800; border-bottom:1.5px solid #0F172A; padding-bottom:6px; margin-bottom:10px; text-transform:uppercase;">
+              1. RECEITAS ARRECADADAS (ENTRADAS)
+            </h4>
+            <div style="font-size:12px; line-height:2.0;">
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Taxas Condominiais Ordinárias (Arrecadado)</span>
+                <b>${window.Security.maskMoney(ordinariasTotal)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Fundo de Reserva (5%)</span>
-                <b>R$ 1.760,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Fundo de Reserva Regulamentar (5%)</span>
+                <b>${window.Security.maskMoney(fundoReserva)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Locação de Salão de Festas & Espaço Gourmet</span>
-                <b>R$ 1.400,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Locação de Salão de Festas & Churrasqueira</span>
+                <b>${window.Security.maskMoney(locacoesAmount)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Juros e Multas por Atraso Recebidos</span>
-                <b>R$ 420,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Multas, Advertências e Juros de Mora Recebidos</span>
+                <b>${window.Security.maskMoney(multasAmount)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between; border-top:1px solid #000; margin-top:8px; padding-top:4px; font-weight:700;">
-                <span>TOTAL DAS RECEITAS (A)</span>
-                <span style="color:#0E9F6E;">R$ 38.780,00</span>
+              <div style="display:flex; justify-content:space-between; border-top:2px solid #0F172A; margin-top:8px; padding-top:6px; font-weight:800; font-size:13px;">
+                <span>TOTAL DAS RECEITAS REALIZADAS (A)</span>
+                <span style="color:#059669;">+ ${window.Security.maskMoney(totalReceitas)}</span>
               </div>
+              ${totalInadimplencia > 0 ? `
+                <div style="display:flex; justify-content:space-between; margin-top:8px; padding:4px 8px; background:#FEF2F2; border-radius:4px; font-size:11px; color:#991B1B;">
+                  <span>Inadimplência acumulada no mês (a receber):</span>
+                  <b>${window.Security.maskMoney(totalInadimplencia)}</b>
+                </div>
+              ` : ''}
             </div>
           </div>
 
-          <!-- DESPESAS -->
+          <!-- 2. DESPESAS -->
           <div>
-            <h4 style="font-size:14px; border-bottom:1px solid #000; padding-bottom:4px; margin-bottom:8px;">2. DESPESAS OPERACIONAIS LIQUIDADAS</h4>
-            <div style="font-size:12px; line-height:1.8;">
-              <div style="display:flex; justify-content:space-between;">
-                <span>Pessoal e Encargos (Zelador / Folha)</span>
-                <b>R$ 12.400,00</b>
+            <h4 style="font-size:13px; font-weight:800; border-bottom:1.5px solid #0F172A; padding-bottom:6px; margin-bottom:10px; text-transform:uppercase;">
+              2. DESPESAS OPERACIONAIS DISCRIMINADAS (SAÍDAS)
+            </h4>
+            <div style="font-size:12px; line-height:2.0;">
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Pessoal, Zeladoria, Encargos & Folha</span>
+                <b>${window.Security.maskMoney(catPessoal)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Contrato Manutenção Elevadores (Otis)</span>
-                <b>R$ 2.800,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Concessionárias (Energia, Água & Esgoto, Gás)</span>
+                <b>${window.Security.maskMoney(catConcessionarias)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Consumo de Energia Elétrica (Enel)</span>
-                <b>R$ 3.450,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Manutenção Predial (Elevadores, Bombas, Portões)</span>
+                <b>${window.Security.maskMoney(catManutencao)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Consumo de Água & Esgoto (Sabesp)</span>
-                <b>R$ 2.100,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Administrativo, Honorários, Software & Seguros</span>
+                <b>${window.Security.maskMoney(catAdministrativo)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Administradora & Honorários Contábeis</span>
-                <b>R$ 3.800,00</b>
+              <div style="display:flex; justify-content:space-between; border-bottom:1px dashed #E2E8F0; padding:3px 0;">
+                <span>Outras Despesas e Manutenções Eventuais</span>
+                <b>${window.Security.maskMoney(catOutras)}</b>
               </div>
-              <div style="display:flex; justify-content:space-between;">
-                <span>Segurança Eletrônica & Portaria Remota</span>
-                <b>R$ 4.500,00</b>
-              </div>
-              <div style="display:flex; justify-content:space-between; border-top:1px solid #000; margin-top:8px; padding-top:4px; font-weight:700;">
-                <span>TOTAL DAS DESPESAS (B)</span>
-                <span style="color:#E02424;">R$ 29.050,00</span>
+              <div style="display:flex; justify-content:space-between; border-top:2px solid #0F172A; margin-top:8px; padding-top:6px; font-weight:800; font-size:13px;">
+                <span>TOTAL DAS DESPESAS PAGAS (B)</span>
+                <span style="color:#DC2626;">- ${window.Security.maskMoney(totalDespesas)}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- RESULTADO -->
-        <div style="background:#F8FAFC; border:1px solid #CBD5E1; padding:12px; border-radius:6px; display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
+        <!-- QUADRO DE RESULTADO DO MÊS -->
+        <div style="background:${isSuperavit ? '#F0FDF4' : '#FEF2F2'}; border:1.5px solid ${isSuperavit ? '#86EFAC' : '#FCA5A5'}; padding:16px; border-radius:8px; display:flex; justify-content:space-between; align-items:center; margin-bottom:26px;">
           <div>
-            <b style="font-size:14px;">SUPERÁVIT OPERACIONAL DO MÊS (A - B)</b><br>
-            <span style="font-size:12px; color:#475569;">Saldo remetido para a Conta Corrente e Fundo de Reserva</span>
+            <b style="font-size:15px; color:${isSuperavit ? '#166534' : '#991B1B'}; text-transform:uppercase;">
+              ${isSuperavit ? 'SUPERÁVIT OPERACIONAL DO MÊS (A - B)' : 'DÉFICIT OPERACIONAL DO MÊS (A - B)'}
+            </b><br>
+            <span style="font-size:12px; color:#475569;">
+              Saldo anterior: ${window.Security.maskMoney(saldoAnterior)} • Saldo final da competência: <b>${window.Security.maskMoney(saldoAtual)}</b>
+            </span>
           </div>
-          <h3 style="font-size:22px; color:#0E9F6E; margin:0;">+ R$ 9.730,00</h3>
+          <h3 style="font-size:24px; font-weight:800; color:${isSuperavit ? '#15803D' : '#DC2626'}; margin:0;">
+            ${isSuperavit ? '+' : ''}${window.Security.maskMoney(superavitMes)}
+          </h3>
         </div>
 
-        <!-- PARECER DO CONSELHO FISCAL -->
-        <div style="border-top:2px solid #000; padding-top:16px;">
-          <h4 style="font-size:13px; text-transform:uppercase;">Parecer Conclusivo do Conselho Fiscal:</h4>
-          <p style="font-size:12px; line-height:1.6; text-align:justify; color:#334155;">
-            Os membros do Conselho Fiscal do Residencial das Palmeiras, no cumprimento de suas atribuições estatutárias, examinaram as contas, livros, extratos bancários e notas fiscais comprobatórias do mês de Setembro/2026 e recomendam a <b>APROVAÇÃO SEM RESSALVAS</b> das contas prestadas pela administração.
+        <!-- PARECER DO CONSELHO FISCAL DINÂMICO -->
+        <div style="border-top:2px solid #0F172A; padding-top:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h4 style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0;">Parecer Conclusivo do Conselho Fiscal:</h4>
+            <span class="badge ${isSuperavit ? 'badge-success' : 'badge-warning'}" style="font-size:11px; font-weight:700;">
+              ${isSuperavit ? 'Superávit — Recomendação de APROVAÇÃO' : 'Déficit — Recomendação de ATENÇÃO'}
+            </span>
+          </div>
+          <p style="font-size:12px; line-height:1.7; text-align:justify; color:#334155;">
+            ${isSuperavit ? `
+              Os membros do Conselho Fiscal do <b>${window.Security.sanitize(condo.name || 'Residencial das Palmeiras')}</b>, no cumprimento de suas atribuições legais e estatutárias, examinaram minuciosamente as receitas, despesas, extratos bancários de conciliação e documentos comprobatórios referentes à competência de <b>${formattedMonthLabel}</b>. Constatou-se a perfeita exação contábil com superávit operacional de <b>${window.Security.maskMoney(superavitMes)}</b> e saldo consolidado de <b>${window.Security.maskMoney(saldoAtual)}</b>. Em vista disso, recomendam a <b>APROVAÇÃO INTEGRAL SEM RESSALVAS</b> das contas apresentadas.
+            ` : `
+              Os membros do Conselho Fiscal do <b>${window.Security.sanitize(condo.name || 'Residencial das Palmeiras')}</b>, após auditoria nas contas da competência de <b>${formattedMonthLabel}</b>, constataram a ocorrência de déficit operacional temporário de <b>${window.Security.maskMoney(Math.abs(superavitMes))}</b>, motivado por despesas não ordinárias ou oscilação na cobrança das cotas (inadimplência de ${window.Security.maskMoney(totalInadimplencia)}). O conselho emite parecer de <b>RECOMENDAÇÃO DE ATENÇÃO</b>, orientando acompanhamento semanal do fluxo de caixa e priorização das despesas essenciais.
+            `}
           </p>
-          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-top:40px; text-align:center; font-size:11px;">
+
+          <!-- ASSINATURAS FORMAIS -->
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; margin-top:36px; text-align:center; font-size:11px;">
             <div>
-              <div style="border-top:1px solid #000; width:80%; margin:0 auto 4px;"></div>
+              <div style="border-top:1px solid #0F172A; width:80%; margin:0 auto 4px;"></div>
               <b>Carlos Mendonça</b><br>Síndico Geral
             </div>
             <div>
-              <div style="border-top:1px solid #000; width:80%; margin:0 auto 4px;"></div>
-              <b>Roberto Campos</b><br>Presidente do Conselho Fiscal
+              <div style="border-top:1px solid #0F172A; width:80%; margin:0 auto 4px;"></div>
+              <b>Eduardo Silveira Santos</b><br>Presidente do Conselho Fiscal
             </div>
             <div>
-              <div style="border-top:1px solid #000; width:80%; margin:0 auto 4px;"></div>
-              <b>Juliana Costa</b><br>Membro do Conselho Fiscal
+              <div style="border-top:1px solid #0F172A; width:80%; margin:0 auto 4px;"></div>
+              <b>Juliana Costa Ramos</b><br>Membro do Conselho Fiscal
             </div>
           </div>
         </div>
@@ -1080,7 +1243,7 @@ window.Modules.settings = {
       </div>
       <div class="form-group">
         <label class="form-label">Senha Provisória</label>
-        <input type="password" id="usr-pwd" class="form-control" value="Condo@2024" />
+        <input type="password" id="usr-pwd" class="form-control" value="Condo@2026" />
       </div>
     `;
 
@@ -1552,44 +1715,114 @@ window.Modules.settings = {
       'condo', 'units', 'residents', 'suppliers', 'maintenance_orders',
       'preventive_maintenance', 'financial_months', 'receivables', 'payables',
       'assemblies', 'votings', 'common_areas', 'reservations', 'visitors',
-      'packages', 'occurrences', 'announcements', 'documents', 'users', 'audit_logs'
+      'packages', 'occurrences', 'announcements', 'documents', 'users',
+      'audit_logs', 'notifications', 'fines'
     ];
-    const data = {};
+    const data = {
+      app: 'CondoHub',
+      version: '2.0.0',
+      timestamp: new Date().toISOString(),
+      keysCount: keys.length,
+      payload: {}
+    };
+
     keys.forEach(k => {
-      data[k] = window.Storage.get(k);
+      data.payload[k] = window.Storage.get(k);
     });
 
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
+    const jsonStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `condohub_backup_full_${new Date().toISOString().substring(0, 10)}.json`;
+    const nowStr = new Date().toISOString().substring(0, 10);
+    link.download = `condohub-backup-${nowStr}.json`;
+    document.body.appendChild(link);
     link.click();
-    window.UI.toast('Backup gerado e baixado com sucesso!', 'success');
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    window.Audit.log('BACKUP_EXPORT', 'Configurações', `Backup exportado com sucesso (${keys.length} tabelas)`);
+    window.UI.toast(`Backup baixado com sucesso: condohub-backup-${nowStr}.json`, 'success');
   },
 
   importBackup() {
     const fileInput = document.getElementById('backup-file-input');
     if (!fileInput || !fileInput.files || !fileInput.files[0]) {
-      window.UI.toast('Selecione um arquivo .json para restaurar.', 'warning');
+      window.UI.toast('Por favor, selecione um arquivo .json para restaurar.', 'warning');
       return;
     }
+
+    const file = fileInput.files[0];
     const reader = new FileReader();
+
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target.result);
-        Object.keys(data).forEach(k => {
-          window.Storage.set(k, data[k]);
+        const rawJson = JSON.parse(e.target.result);
+        const data = rawJson.payload || rawJson;
+
+        // Validação da estrutura esperada
+        if (!data || typeof data !== 'object' || (!data.condo && !data.residents && !data.units)) {
+          window.UI.toast('Arquivo inválido: o JSON não possui a estrutura esperada do CondoHub.', 'danger');
+          return;
+        }
+
+        window.UI.modal({
+          title: 'Confirmar Restauração de Backup',
+          size: 'sm',
+          content: `
+            <div style="display:flex; align-items:flex-start; gap:12px;">
+              <span style="color:var(--color-danger);">${window.UI.icon('alert-triangle', 24)}</span>
+              <div>
+                <p style="margin:0 0 8px; font-weight:700; color:var(--color-danger);">Aviso de Substituição de Dados</p>
+                <p style="margin:0; font-size:13px; color:var(--color-text);">
+                  Isso substituirá todos os dados atuais. Deseja continuar?
+                </p>
+                <p style="margin:6px 0 0; font-size:11px; color:var(--color-text-muted);">
+                  Arquivo: <b>${window.Security.sanitize(file.name)}</b>
+                </p>
+              </div>
+            </div>
+          `,
+          buttons: [
+            {
+              label: 'Sim, Restaurar Dados',
+              className: 'btn-danger',
+              onClick: (closeModal) => {
+                closeModal();
+                window.Storage.clear();
+
+                Object.keys(data).forEach(k => {
+                  if (data[k] !== undefined) {
+                    window.Storage.set(k, data[k]);
+                  }
+                });
+
+                window.Audit.log('BACKUP_IMPORT', 'Configurações', `Backup restaurado do arquivo ${file.name}`);
+                window.UI.toast('Backup restaurado com sucesso!', 'success');
+
+                setTimeout(() => {
+                  if (window.Router) {
+                    window.Router.navigate('dashboard');
+                  } else {
+                    location.reload();
+                  }
+                }, 800);
+              }
+            },
+            { label: 'Cancelar', className: 'btn-outline' }
+          ]
         });
-        window.Audit.log('Restauração de Backup Completo', {}, 'Sistema');
-        window.UI.toast('Banco de dados restaurado com sucesso! Recarregando tela...', 'success');
-        setTimeout(() => location.reload(), 1200);
       } catch (err) {
-        window.UI.toast('Erro ao processar arquivo JSON de backup.', 'error');
+        window.UI.toast('Erro ao processar o arquivo: JSON corrompido ou formato inválido.', 'danger');
       }
     };
-    reader.readAsText(fileInput.files[0]);
+
+    reader.onerror = () => {
+      window.UI.toast('Falha ao ler o arquivo selecionado.', 'danger');
+    };
+
+    reader.readAsText(file);
   },
 
   resetToSeed() {
@@ -1601,3 +1834,5 @@ window.Modules.settings = {
     });
   }
 };
+
+// === FIM DO modules4.js ===
