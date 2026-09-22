@@ -195,12 +195,14 @@ body {
   object-fit: cover;
 }
 
-#main-wrapper {
+#main-wrapper,
+#main-content {
   flex: 1;
   margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: calc(100% - var(--sidebar-width));
 }
 
 #top-header {
@@ -842,23 +844,27 @@ body.dark-mode .table tbody tr:hover {
 @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
 /* RESPONSIVE */
-@media (max-width: 1024px) {
-  .grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
-}
-
-@media (max-width: 768px) {
+@media (max-width: 1023px) {
   #sidebar {
     transform: translateX(-100%);
   }
   #sidebar.open {
     transform: translateX(0);
   }
-  #main-wrapper {
-    margin-left: 0;
+  #main-wrapper,
+  #main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
   }
   .menu-toggle-btn {
     display: block;
   }
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 768px) {
   .grid-4, .grid-2 {
     grid-template-columns: 1fr !important;
   }
@@ -930,6 +936,35 @@ body.dark-mode .analytics-subtitle {
 }
 body.dark-mode .analytics-border {
   border-color: rgba(255,255,255,0.08);
+}
+
+/* INFOGRÁFICO CYBER-NEON MODERNO (INSPIRADO NO DESIGN DA IMAGEM) */
+.analytics-infographic-container {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+body.dark-mode .analytics-infographic-container::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(0, 242, 254, 0.12) 0%, rgba(37, 99, 235, 0.04) 50%, transparent 70%);
+  pointer-events: none;
+}
+
+body:not(.dark-mode) .analytics-infographic-container::before {
+  content: '';
+  position: absolute;
+  top: -120px;
+  right: -120px;
+  width: 320px;
+  height: 320px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.08) 0%, rgba(56, 189, 248, 0.03) 50%, transparent 70%);
+  pointer-events: none;
 }
 
 /* CÍRCULOS DE INDICADORES */
