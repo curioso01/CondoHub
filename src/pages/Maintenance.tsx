@@ -120,7 +120,10 @@ export const Maintenance: React.FC = () => {
       </div>
 
       {/* ABAS */}
-      <div className="border-b border-[var(--color-border)] flex items-center gap-4 text-sm font-semibold overflow-x-auto whitespace-nowrap">
+      <div 
+        className="border-b border-[var(--color-border)] flex items-center gap-4 text-sm font-semibold overflow-x-auto whitespace-nowrap"
+        style={{ marginBottom: '32px' }}
+      >
         <button
           onClick={() => setActiveTab('kanban')}
           className={`pb-3 border-b-2 transition-colors ${
