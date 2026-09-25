@@ -100,10 +100,11 @@ const InlineBadge: React.FC<InlineBadgeProps> = ({ color, bg, children }) => (
 
 // ─── Gauge SVG (semicírculo) ───────────────────────────────────────────────────
 const GaugeSVG: React.FC<{ percent: number }> = ({ percent }) => {
-  const r = 60;
-  const cx = 80;
-  const cy = 80;
-  const circumference = Math.PI * r; // semicírculo = metade
+  // r=70 px, centro horizontalmente no meio do viewBox 272
+  const r = 70;
+  const cx = 136;
+  const cy = 88;
+  const circumference = Math.PI * r; // semicírculo
 
   const clampedPct = Math.min(100, Math.max(0, percent));
   const offset = circumference - (clampedPct / 100) * circumference;
@@ -112,43 +113,45 @@ const GaugeSVG: React.FC<{ percent: number }> = ({ percent }) => {
     clampedPct >= 95 ? C.positive : clampedPct >= 80 ? C.accent : C.negative;
 
   return (
-    <svg width={160} height={90} viewBox="0 0 160 90">
+    // viewBox 272×120 garante que o texto em y=106 (cy+18) fica inteiramente visível
+    <svg width="100%" height={130} viewBox="0 0 272 120" style={{ display: 'block' }}>
       {/* trilha */}
       <path
         d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
         fill="none"
         stroke="#E2E8F0"
-        strokeWidth={12}
+        strokeWidth={14}
         strokeLinecap="round"
       />
-      {/* preenchimento */}
+      {/* preenchimento animado */}
       <path
         d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
         fill="none"
         stroke={gaugeColor}
-        strokeWidth={12}
+        strokeWidth={14}
         strokeLinecap="round"
         strokeDasharray={circumference}
         strokeDashoffset={offset}
         style={{ transition: 'stroke-dashoffset 0.6s ease' }}
       />
-      {/* percentual */}
+      {/* valor percentual */}
       <text
         x={cx}
-        y={cy - 4}
+        y={cy - 8}
         textAnchor="middle"
-        fontSize={26}
+        fontSize={30}
         fontWeight={700}
         fill={gaugeColor}
         fontFamily="Inter, sans-serif"
       >
         {clampedPct.toFixed(1)}%
       </text>
+      {/* subtítulo — y=cy+20=108 completamente dentro do viewBox 120 */}
       <text
         x={cx}
-        y={cy + 14}
+        y={cy + 20}
         textAnchor="middle"
-        fontSize={10}
+        fontSize={11}
         fill="#94A3B8"
         fontFamily="Inter, sans-serif"
       >
@@ -581,7 +584,7 @@ export const Dashboard: React.FC = () => {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gridTemplateColumns: 'repeat(4, 1fr)',
               gap: 16,
             }}
           >
