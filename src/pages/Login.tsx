@@ -81,7 +81,7 @@ export const Login: React.FC = () => {
   const handleQuickLogin = (role: string) => {
     setIsLoading(true);
     setTimeout(() => {
-      const res = quickLogin(role);
+      const res = quickLogin(role as any);
       setIsLoading(false);
       if (res.success) {
         success('Acesso rápido ativado!');

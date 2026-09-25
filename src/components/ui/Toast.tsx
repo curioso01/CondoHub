@@ -34,11 +34,31 @@ const useToastStore = create<ToastState>()((set) => ({
 }));
 
 // ─── HOOK PÚBLICO ─────────────────────────────────────────────────────────────
+export interface ToastFn {
+  (message: string, type?: ToastType, duration?: number): void;
+  success: (message: string, duration?: number) => void;
+  error: (message: string, duration?: number) => void;
+  warning: (message: string, duration?: number) => void;
+  info: (message: string, duration?: number) => void;
+}
+
 /**
  * Hook para disparar toasts de qualquer componente.
- * Uso: const toast = useToast(); toast('Salvo!', 'success');
+ * Uso: const toast = useToast(); toast('Salvo!', 'success') ou toast.success('Salvo!');
  */
-export const useToast = () => useToastStore(s => s.addToast);
+export const useToast = (): ToastFn => {
+  const addToast = useToastStore(s => s.addToast);
+  const fn = ((message: string, type: ToastType = 'info', duration = 4000) => {
+    addToast(message, type, duration);
+  }) as ToastFn;
+
+  fn.success = (message: string, duration = 4000) => addToast(message, 'success', duration);
+  fn.error = (message: string, duration = 4000) => addToast(message, 'error', duration);
+  fn.warning = (message: string, duration = 4000) => addToast(message, 'warning', duration);
+  fn.info = (message: string, duration = 4000) => addToast(message, 'info', duration);
+
+  return fn;
+};
 
 // ─── CONFIGURAÇÃO VISUAL POR TIPO ─────────────────────────────────────────────
 const TOAST_CONFIG: Record<

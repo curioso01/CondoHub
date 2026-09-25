@@ -166,8 +166,8 @@ export const Financial: React.FC = () => {
     return fines.filter(f => {
       return (
         f.unit.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.residentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        f.violation.toLowerCase().includes(searchQuery.toLowerCase())
+        (f.residentName || f.resident || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (f.violation || f.description || '').toLowerCase().includes(searchQuery.toLowerCase())
       );
     });
   }, [fines, searchQuery]);
@@ -1357,9 +1357,9 @@ export const Financial: React.FC = () => {
           <div className="bg-white text-slate-900 p-4 border border-slate-300 rounded font-mono text-xs space-y-3">
             <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2">
               <div>
-                <h2 className="text-base font-bold text-slate-900">{condo.name}</h2>
+                <h2 className="text-base font-bold text-slate-900">{condo?.name || 'Condomínio'}</h2>
                 <p className="text-[10px] text-slate-600">
-                  CNPJ: {condo.cnpj} • {condo.address}, {condo.city}-{condo.state}
+                  CNPJ: {condo?.cnpj || ''} • {condo?.address || ''}, {condo?.city || ''}-{condo?.state || ''}
                 </p>
               </div>
               <div className="text-right">

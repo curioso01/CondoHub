@@ -147,7 +147,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     const matchedOccurrences: SearchResult[] = occurrences
       .filter(
         occ =>
-          occ.title.toLowerCase().includes(term) ||
+          (occ.title || '').toLowerCase().includes(term) ||
           occ.description.toLowerCase().includes(term) ||
           occ.category.toLowerCase().includes(term)
       )
@@ -166,7 +166,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         wo =>
           wo.title.toLowerCase().includes(term) ||
           wo.area.toLowerCase().includes(term) ||
-          wo.supplier.toLowerCase().includes(term)
+          (wo.supplier || '').toLowerCase().includes(term)
       )
       .slice(0, 5)
       .map(wo => ({
@@ -200,13 +200,13 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
         v =>
           v.name.toLowerCase().includes(term) ||
           v.unit.toLowerCase().includes(term) ||
-          v.doc.toLowerCase().includes(term)
+          (v.doc || v.document || '').toLowerCase().includes(term)
       )
       .slice(0, 5)
       .map(v => ({
         id: v.id,
         label: `${v.name} → ${v.unit}`,
-        sublabel: `Documento: ${v.doc} • Status: ${v.status}`,
+        sublabel: `Documento: ${v.doc || v.document || 'N/A'} • Status: ${v.status || 'Dentro'}`,
         module: 'Portaria',
         route: '/portaria',
       }));

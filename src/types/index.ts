@@ -146,15 +146,17 @@ export interface FinancialMonth {
 
 // ─── MULTAS / ADVERTÊNCIAS ────────────────────────────────────────────────────
 export type FineLevel = '1ª Advertência' | '2ª Advertência' | 'Multa';
-export type FineStatus = 'Aberta' | 'Paga' | 'Cancelada' | 'Recurso';
+export type FineStatus = 'Aberta' | 'Paga' | 'Pago' | 'Cancelada' | 'Recurso' | 'Notificado' | string;
 
 export interface Fine {
   id: string;
   unit: string;
-  resident: string;
+  resident?: string;
+  residentName?: string;
   level: FineLevel;
-  category: string;
+  category?: string;
   description: string;
+  violation?: string;
   date: string;
   amount: number;
   status: FineStatus;
@@ -162,14 +164,20 @@ export interface Fine {
 }
 
 // ─── MANUTENÇÃO — ORDENS DE SERVIÇO ──────────────────────────────────────────
-export type WorkOrderPriority = 'Urgente' | 'Alta' | 'Media' | 'Baixa';
+export type WorkOrderPriority = 'Urgente' | 'Alta' | 'Media' | 'Média' | 'Baixa' | string;
 export type WorkOrderColumn =
   | 'aberta'
   | 'em_analise'
   | 'aprovada'
   | 'em_execucao'
   | 'concluida'
-  | 'cancelada';
+  | 'cancelada'
+  | 'Aberta'
+  | 'Em Análise'
+  | 'Aprovada'
+  | 'Em Execução'
+  | 'Concluída'
+  | string;
 
 export interface WorkOrderHistory {
   date: string;
@@ -180,14 +188,16 @@ export interface WorkOrderHistory {
 export interface WorkOrder {
   id: string;
   title: string;
+  description?: string;
   area: string;
   priority: WorkOrderPriority;
-  supplier: string;
-  estimatedAmount: number;
-  estimatedDate: string;
-  column: WorkOrderColumn;
-  photos: string[];
-  timeline: WorkOrderHistory[];
+  supplier?: string;
+  estimatedAmount?: number;
+  estimatedDate?: string;
+  column?: WorkOrderColumn;
+  status?: string;
+  photos?: string[];
+  timeline?: WorkOrderHistory[];
 }
 
 // ─── MANUTENÇÃO — PREVENTIVA ──────────────────────────────────────────────────
@@ -227,7 +237,7 @@ export interface AgendaItem {
   id: number;
   title: string;
   description: string;
-  type: 'aprovação' | 'votação' | 'informativo';
+  type: 'aprovação' | 'votação' | 'informativo' | string;
 }
 
 export interface MinuteDeliberation {
@@ -260,7 +270,7 @@ export interface Assembly {
   type: AssemblyType;
   date: string;
   time: string;
-  endTime: string;
+  endTime?: string;
   location: string;
   quorum: string;
   status: AssemblyStatus;
@@ -296,11 +306,12 @@ export interface Announcement {
   title: string;
   category: string;
   target: string;
-  date: string;
-  expires: string | null;
+  date?: string;
+  createdAt?: string;
+  expires?: string | null;
   pinned: boolean;
   urgent: boolean;
-  views: number;
+  views?: number;
   content: string;
 }
 
@@ -311,18 +322,22 @@ export type DocType = 'CPF' | 'RG' | 'CNH' | 'Passaporte';
 export interface Visitor {
   id: string;
   name: string;
-  docType: DocType;
-  doc: string;
+  docType?: DocType;
+  doc?: string;
+  document?: string;
   unit: string;
-  reason: string;
-  entryTime: string;
-  exitTime: string | null;
-  hasVehicle: boolean;
-  plate: string | null;
-  model: string | null;
-  color: string | null;
-  photo: string | null;
-  status: VisitorStatus;
+  destinationUnit?: string;
+  reason?: string;
+  entryTime?: string;
+  enteredAt?: string;
+  exitTime?: string | null;
+  hasVehicle?: boolean;
+  plate?: string | null;
+  vehiclePlate?: string | null;
+  model?: string | null;
+  color?: string | null;
+  photo?: string | null;
+  status?: VisitorStatus;
 }
 
 // ─── PORTARIA — ENCOMENDAS ────────────────────────────────────────────────────
@@ -334,10 +349,10 @@ export interface Package {
   unit: string;
   type: string;
   volumes: number;
-  receivedAt: string;
-  status: PackageStatus;
-  pickedAt: string | null;
-  pickedBy: string | null;
+  receivedAt?: string;
+  status?: PackageStatus;
+  pickedAt?: string | null;
+  pickedBy?: string | null;
 }
 
 // ─── RESERVAS ─────────────────────────────────────────────────────────────────
@@ -367,6 +382,7 @@ export interface Reservation {
   date: string;
   timeSlot: string;
   guestsCount: number;
+  guests?: number;
   resident: string;
   unit: string;
   status: ReservationStatus;
@@ -381,7 +397,7 @@ export type OccurrenceStatus =
   | 'Em providência'
   | 'Resolvida'
   | 'Arquivada';
-export type OccurrencePriority = 'Urgente' | 'Alta' | 'Media' | 'Baixa';
+export type OccurrencePriority = 'Urgente' | 'Alta' | 'Media' | 'Média' | 'Baixa' | string;
 export type SLAStatus = 'ok' | 'warning' | 'danger';
 
 export interface OccurrenceTimeline {
@@ -394,27 +410,31 @@ export interface OccurrenceTimeline {
 export interface Occurrence {
   id: string;
   category: string;
-  title: string;
-  location: string;
-  offendingUnit: string | null;
+  title?: string;
+  location?: string;
+  offendingUnit?: string | null;
+  unitOffender?: string | null;
   complainingUnit: string;
-  resident: string;
-  date: string;
+  resident?: string;
+  date?: string;
+  createdAt?: string;
   description: string;
   priority: OccurrencePriority;
   isAnonymous: boolean;
+  anonymous?: boolean;
   status: OccurrenceStatus;
-  slaHoursLeft: number;
-  slaStatus: SLAStatus;
-  photos: string[];
+  slaHoursLeft?: number;
+  slaStatus?: SLAStatus;
+  photos?: string[];
   resolutionNotes?: string;
-  timeline: OccurrenceTimeline[];
+  timeline?: OccurrenceTimeline[];
 }
 
 // ─── AUDITORIA ────────────────────────────────────────────────────────────────
 export interface AuditLog {
   id: string;
   timestamp: string;
+  createdAt?: string;
   userId: string;
   userName: string;
   role: string;
@@ -431,7 +451,7 @@ export interface Document {
   id: string;
   title: string;
   category: string;
-  uploadDate: string;
+  uploadDate?: string;
   expiresDate: string | null;
   status: DocumentStatus;
   isPublic: boolean;
@@ -487,3 +507,11 @@ export interface PasswordValidation {
   strength: PasswordStrength;
   errors: string[];
 }
+
+// ─── ALIASES PARA COMPATIBILIDADE COM PÁGINAS EXISTENTES ─────────────────────
+export type PackageItem = Package;
+export type DocumentItem = Document;
+export type PaymentStatus = PayableStatus;
+export type WorkOrderStatus = WorkOrderColumn;
+export type Priority = WorkOrderPriority;
+

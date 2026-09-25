@@ -117,7 +117,7 @@ export const Dashboard: React.FC = () => {
             Dashboard Executivo
           </h2>
           <p className="text-xs sm:text-sm text-[var(--color-text-muted)] mt-0.5">
-            {condo.name} • {condo.totalUnits} Unidades • Gestão Ativa
+            {condo?.name || 'Condomínio'} • {condo?.totalUnits || 0} Unidades • Gestão Ativa
           </p>
         </div>
 
@@ -437,7 +437,7 @@ export const Dashboard: React.FC = () => {
               <p>
                 Para regularizar, acesse o Portal do Morador do CondoHub ou responda a esta mensagem para obter a segunda via atualizada do boleto/PIX.
               </p>
-              <p>Atenciosamente,<br />Administração do {condo.name}</p>
+              <p>Atenciosamente,<br />Administração do {condo?.name || 'Condomínio'}</p>
             </div>
             <p className="text-[11px] text-[var(--color-text-muted)]">
               * Esta é uma simulação de régua de cobrança automatizada via WhatsApp.

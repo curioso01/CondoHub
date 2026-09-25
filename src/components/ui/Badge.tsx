@@ -96,23 +96,36 @@ const STATUS_CLASS_MAP: Record<string, string> = {
 };
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
-interface BadgeProps {
-  status: string;
+export interface BadgeProps {
+  status?: string;
+  variant?: string;
+  children?: React.ReactNode;
   className?: string;
   /** Se true, adiciona animação pulsante (para status Urgente) */
   pulse?: boolean;
 }
 
 // ─── COMPONENTE ───────────────────────────────────────────────────────────────
-export function Badge({ status, className = '', pulse }: BadgeProps) {
-  const statusClass = STATUS_CLASS_MAP[status] ?? 'badge-info';
-  const isUrgent = status === 'Urgente' || pulse;
+export function Badge({ status, variant, children, className = '', pulse }: BadgeProps) {
+  const label = children !== undefined ? children : (status ?? variant ?? '');
+  const text = typeof label === 'string' ? label : (status || '');
+
+  let statusClass = 'badge-info';
+  if (status && STATUS_CLASS_MAP[status]) {
+    statusClass = STATUS_CLASS_MAP[status];
+  } else if (variant) {
+    statusClass = variant.startsWith('badge-') ? variant : `badge-${variant}`;
+  } else if (typeof children === 'string' && STATUS_CLASS_MAP[children]) {
+    statusClass = STATUS_CLASS_MAP[children];
+  }
+
+  const isUrgent = text === 'Urgente' || pulse;
 
   return (
     <span
       className={`badge ${statusClass}${isUrgent ? ' badge-urgent-pulse' : ''} ${className}`.trim()}
     >
-      {status}
+      {label}
     </span>
   );
 }

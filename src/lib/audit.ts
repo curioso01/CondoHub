@@ -143,3 +143,9 @@ export function getLogs(filter?: {
 
   return logs.map(l => ({ ...l, details: formatDetails(l.details) }));
 }
+
+export const audit = {
+  log,
+  getLogs,
+};
+

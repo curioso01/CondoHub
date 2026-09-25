@@ -29,6 +29,12 @@ import type {
   Document,
   Integration,
   NotificationSetting,
+  ReceivableStatus,
+  PayableStatus,
+  FineStatus,
+  WorkOrderColumn,
+  OccurrenceStatus,
+  ReservationStatus,
 } from '../types';
 
 // ─── TIPO DO ESTADO ───────────────────────────────────────────────────────────
@@ -42,6 +48,7 @@ interface AppState {
   financialMonths: FinancialMonth[];
   fines: Fine[];
   workOrders: WorkOrder[];
+  maintenanceOrders: WorkOrder[];
   preventiveMaintenance: PreventiveMaintenance[];
   suppliers: Supplier[];
   assemblies: Assembly[];
@@ -88,12 +95,12 @@ interface AppState {
   updateFinancialMonth: (month: string, data: Partial<FinancialMonth>) => void;
 
   // ── Multas ────────────────────────────────────────────────────────────────────
-  addFine: (fine: Omit<Fine, 'id'>) => Fine;
+  addFine: (fine: any) => Fine;
   updateFine: (id: string, data: Partial<Fine>) => void;
   removeFine: (id: string) => void;
 
   // ── Ordens de Serviço ────────────────────────────────────────────────────────
-  addWorkOrder: (order: Omit<WorkOrder, 'id'>) => WorkOrder;
+  addWorkOrder: (order: any) => WorkOrder;
   updateWorkOrder: (id: string, data: Partial<WorkOrder>) => void;
   removeWorkOrder: (id: string) => void;
 
@@ -108,7 +115,7 @@ interface AppState {
   removeSupplier: (id: string) => void;
 
   // ── Assembleias ──────────────────────────────────────────────────────────────
-  addAssembly: (assembly: Omit<Assembly, 'id'>) => Assembly;
+  addAssembly: (assembly: any) => Assembly;
   updateAssembly: (id: string, data: Partial<Assembly>) => void;
   removeAssembly: (id: string) => void;
 
@@ -118,33 +125,33 @@ interface AppState {
   castVote: (votingId: string, unit: string, optionId: string) => void;
 
   // ── Comunicados ───────────────────────────────────────────────────────────────
-  addAnnouncement: (ann: Omit<Announcement, 'id'>) => Announcement;
+  addAnnouncement: (ann: any) => Announcement;
   updateAnnouncement: (id: string, data: Partial<Announcement>) => void;
   removeAnnouncement: (id: string) => void;
   incrementViews: (id: string) => void;
 
   // ── Visitantes ────────────────────────────────────────────────────────────────
-  addVisitor: (visitor: Omit<Visitor, 'id'>) => Visitor;
+  addVisitor: (visitor: any) => Visitor;
   updateVisitor: (id: string, data: Partial<Visitor>) => void;
   registerExit: (id: string) => void;
 
   // ── Encomendas ────────────────────────────────────────────────────────────────
-  addPackage: (pkg: Omit<Package, 'id'>) => Package;
+  addPackage: (pkg: any) => Package;
   updatePackage: (id: string, data: Partial<Package>) => void;
-  markPackagePickedUp: (id: string, pickedBy: string) => void;
+  markPackagePickedUp: (id: string, pickedBy?: string) => void;
 
   // ── Reservas ──────────────────────────────────────────────────────────────────
-  addReservation: (res: Omit<Reservation, 'id'>) => Reservation;
+  addReservation: (res: any) => Reservation;
   updateReservation: (id: string, data: Partial<Reservation>) => void;
   removeReservation: (id: string) => void;
 
   // ── Ocorrências ───────────────────────────────────────────────────────────────
-  addOccurrence: (occ: Omit<Occurrence, 'id'>) => Occurrence;
+  addOccurrence: (occ: any) => Occurrence;
   updateOccurrence: (id: string, data: Partial<Occurrence>) => void;
   removeOccurrence: (id: string) => void;
 
   // ── Documentos ────────────────────────────────────────────────────────────────
-  addDocument: (doc: Omit<Document, 'id'>) => Document;
+  addDocument: (doc: any) => Document;
   updateDocument: (id: string, data: Partial<Document>) => void;
   removeDocument: (id: string) => void;
 
@@ -157,6 +164,18 @@ interface AppState {
   // ── Backup ────────────────────────────────────────────────────────────────────
   exportBackup: () => void;
   importBackup: (json: string) => { success: boolean; error?: string };
+
+  // ── Métodos de Compatibilidade para Páginas Legadas ───────────────────────────
+  updateReceivableStatus: (id: string, status: ReceivableStatus, method?: any) => void;
+  updatePayableStatus: (id: string, status: PayableStatus, approvedBy?: string) => void;
+  updateFineStatus: (id: string, status: FineStatus) => void;
+  updateWorkOrderStatus: (id: string, column: WorkOrderColumn, note?: string) => void;
+  updateOccurrenceStatus: (id: string, status: OccurrenceStatus, resolutionNotes?: string) => void;
+  updateReservationStatus: (id: string, status: ReservationStatus) => void;
+  checkoutVisitor: (id: string) => void;
+  pickupPackage: (id: string, pickedBy?: string) => void;
+  deleteAnnouncement: (id: string) => void;
+  togglePinAnnouncement: (id: string) => void;
 }
 
 // ─── FUNÇÕES AUXILIARES ───────────────────────────────────────────────────────
@@ -207,6 +226,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   financialMonths: [],
   fines: [],
   workOrders: [],
+  maintenanceOrders: [],
   preventiveMaintenance: [],
   suppliers: [],
   assemblies: [],
@@ -249,6 +269,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
       financialMonths:       data.financialMonths,
       fines:                 data.fines,
       workOrders:            data.workOrders,
+      maintenanceOrders:     data.workOrders,
       preventiveMaintenance: data.preventiveMaintenance,
       suppliers:             data.suppliers,
       assemblies:            data.assemblies,
@@ -425,8 +446,8 @@ export const useAppStore = create<AppState>()((set, get) => ({
     if (newFine.level === 'Multa' && newFine.amount > 0) {
       const receivable = get().addReceivable({
         unit: newFine.unit,
-        resident: newFine.resident,
-        type: `Multa — ${newFine.category}`,
+        resident: newFine.resident || newFine.residentName || 'Morador',
+        type: `Multa — ${newFine.category || 'Condomínio'}`,
         ref: newFine.date.substring(0, 7),
         due: newFine.date,
         amount: newFine.amount,
@@ -471,8 +492,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
   // ────────────────────────────────────────────────────────────────────────────
   // ORDENS DE SERVIÇO
   // ────────────────────────────────────────────────────────────────────────────
-  addWorkOrder(order) {
-    const newOrder: WorkOrder = { id: `OS-${String(Date.now()).slice(-6)}`, ...order };
+  addWorkOrder(order: any) {
+    const column = order.column || order.status || 'aberta';
+    const newOrder: WorkOrder = {
+      id: `OS-${String(Date.now()).slice(-6)}`,
+      column,
+      status: column,
+      photos: [],
+      timeline: [],
+      ...order,
+    };
     set(state => {
       const updated = [...state.workOrders, newOrder];
       saveToStorage('maintenance_orders', updated);
@@ -661,7 +690,7 @@ export const useAppStore = create<AppState>()((set, get) => ({
   incrementViews(id) {
     set(state => {
       const updated = state.announcements.map(a =>
-        a.id === id ? { ...a, views: a.views + 1 } : a
+        a.id === id ? { ...a, views: (a.views ?? 0) + 1 } : a
       );
       saveToStorage('announcements', updated);
       return { announcements: updated };
@@ -971,4 +1000,44 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
     return { success: true };
   },
+
+  // ── Implementações de Compatibilidade ────────────────────────────────────────
+  updateReceivableStatus(id, status, method) {
+    get().updateReceivable(id, { status, ...(method ? { method } : {}) });
+  },
+  updatePayableStatus(id, status, approvedBy) {
+    get().updatePayable(id, { status, ...(approvedBy ? { approvedBy } : {}) });
+  },
+  updateFineStatus(id, status) {
+    get().updateFine(id, { status });
+  },
+  updateWorkOrderStatus(id, column, note) {
+    get().updateWorkOrder(id, {
+      column,
+      status: column,
+      ...(note ? { timeline: [{ date: new Date().toISOString().split('T')[0], user: 'Sistema', note }] } : {}),
+    });
+  },
+  updateOccurrenceStatus(id, status, resolutionNotes) {
+    get().updateOccurrence(id, { status, ...(resolutionNotes ? { resolutionNotes } : {}) });
+  },
+  updateReservationStatus(id, status) {
+    get().updateReservation(id, { status });
+  },
+  checkoutVisitor(id) {
+    get().registerExit(id);
+  },
+  pickupPackage(id, pickedBy = 'Portaria') {
+    get().markPackagePickedUp(id, pickedBy);
+  },
+  deleteAnnouncement(id) {
+    get().removeAnnouncement(id);
+  },
+  togglePinAnnouncement(id) {
+    const item = get().announcements.find(a => a.id === id);
+    if (item) {
+      get().updateAnnouncement(id, { pinned: !item.pinned });
+    }
+  },
 }));
+

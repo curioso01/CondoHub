@@ -28,5 +28,6 @@ export function useAuth() {
     can,
     initials,
     role: user?.role as UserRole | undefined,
+    loginError: null as string | null,
   };
 }

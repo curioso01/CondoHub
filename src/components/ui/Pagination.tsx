@@ -1,11 +1,15 @@
 // CONDOHUB — COMPONENTE DE PAGINAÇÃO
 
 // ─── TIPOS ────────────────────────────────────────────────────────────────────
-interface PaginationProps {
-  total: number;
-  page: number;
-  perPage: number;
-  onPageChange: (page: number) => void;
+export interface PaginationProps {
+  total?: number;
+  page?: number;
+  perPage?: number;
+  totalItems?: number;
+  currentPage?: number;
+  pageSize?: number;
+  totalPages?: number;
+  onPageChange: ((page: number) => void) | React.Dispatch<React.SetStateAction<number>>;
   className?: string;
 }
 
@@ -37,11 +41,25 @@ function buildPageRange(current: number, total: number): (number | '...')[] {
 }
 
 // ─── COMPONENTE ───────────────────────────────────────────────────────────────
-export function Pagination({ total, page, perPage, onPageChange, className = '' }: PaginationProps) {
-  const totalPages = Math.max(1, Math.ceil(total / perPage));
-  const from = total === 0 ? 0 : (page - 1) * perPage + 1;
-  const to = Math.min(page * perPage, total);
-  const pageRange = buildPageRange(page, totalPages);
+export function Pagination({
+  total,
+  page,
+  perPage,
+  totalItems,
+  currentPage,
+  pageSize,
+  totalPages: propTotalPages,
+  onPageChange,
+  className = '',
+}: PaginationProps) {
+  const current = page ?? currentPage ?? 1;
+  const size = perPage ?? pageSize ?? 10;
+  const count = total ?? totalItems ?? 0;
+  const totalPages = propTotalPages ?? Math.max(1, Math.ceil(count / size));
+  const from = count === 0 ? 0 : (current - 1) * size + 1;
+  const to = Math.min(current * size, count);
+  const pageRange = buildPageRange(current, totalPages);
+
 
   if (total === 0) {
     return (
@@ -76,7 +94,7 @@ export function Pagination({ total, page, perPage, onPageChange, className = '' 
       {/* Contador de registros */}
       <span style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
         Exibindo <strong>{from}</strong> a <strong>{to}</strong> de{' '}
-        <strong>{total}</strong> registros
+        <strong>{count}</strong> registros
       </span>
 
       {/* Botões de página */}
@@ -85,7 +103,7 @@ export function Pagination({ total, page, perPage, onPageChange, className = '' 
         <button
           className="btn btn-sm btn-outline"
           onClick={() => onPageChange(1)}
-          disabled={page <= 1}
+          disabled={current <= 1}
           aria-label="Primeira página"
           title="Primeira"
         >
@@ -95,8 +113,8 @@ export function Pagination({ total, page, perPage, onPageChange, className = '' 
         {/* Anterior */}
         <button
           className="btn btn-sm btn-outline"
-          onClick={() => onPageChange(page - 1)}
-          disabled={page <= 1}
+          onClick={() => onPageChange(current - 1)}
+          disabled={current <= 1}
           aria-label="Página anterior"
         >
           Anterior
@@ -119,10 +137,10 @@ export function Pagination({ total, page, perPage, onPageChange, className = '' 
           ) : (
             <button
               key={p}
-              className={`btn btn-sm ${p === page ? 'btn-primary' : 'btn-outline'}`}
+              className={`btn btn-sm ${p === current ? 'btn-primary' : 'btn-outline'}`}
               onClick={() => onPageChange(p)}
               aria-label={`Página ${p}`}
-              aria-current={p === page ? 'page' : undefined}
+              aria-current={p === current ? 'page' : undefined}
               style={{ minWidth: '34px' }}
             >
               {p}
@@ -133,8 +151,8 @@ export function Pagination({ total, page, perPage, onPageChange, className = '' 
         {/* Próxima */}
         <button
           className="btn btn-sm btn-outline"
-          onClick={() => onPageChange(page + 1)}
-          disabled={page >= totalPages}
+          onClick={() => onPageChange(current + 1)}
+          disabled={current >= totalPages}
           aria-label="Próxima página"
         >
           Próxima
@@ -144,7 +162,7 @@ export function Pagination({ total, page, perPage, onPageChange, className = '' 
         <button
           className="btn btn-sm btn-outline"
           onClick={() => onPageChange(totalPages)}
-          disabled={page >= totalPages}
+          disabled={current >= totalPages}
           aria-label="Última página"
           title="Última"
         >
