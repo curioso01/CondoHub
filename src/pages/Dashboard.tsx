@@ -806,10 +806,10 @@ export const Dashboard: React.FC = () => {
       {/* ══════════════════════════════════════════════════════════════════════
           SEÇÃO 5 — 3 CARDS OPERACIONAIS (full-width, 3 colunas)
           ══════════════════════════════════════════════════════════════════════ */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'stretch' }}>
 
         {/* CARD A — Inadimplentes em Destaque */}
-        <DCard style={{ padding: 0 }}>
+        <DCard style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '18px 20px 10px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Inadimplentes em Destaque</div>
@@ -819,7 +819,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div style={{ fontSize: 12, color: C.muted }}>Cobrança e regularização</div>
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             {overdueCurrent.slice(0, 3).map((r, i) => (
               <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 20px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                 <div style={{ minWidth: 0 }}>
@@ -844,7 +844,7 @@ export const Dashboard: React.FC = () => {
         </DCard>
 
         {/* CARD B — Próximas Manutenções */}
-        <DCard style={{ padding: 0 }}>
+        <DCard style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '18px 20px 10px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Próximas Manutenções</div>
@@ -854,7 +854,7 @@ export const Dashboard: React.FC = () => {
             </div>
             <div style={{ fontSize: 12, color: C.muted }}>Preventivas e vistorias</div>
           </div>
-          <div>
+          <div style={{ flex: 1 }}>
             {prevMaint.slice().sort((a, b) => a.nextDate.localeCompare(b.nextDate)).slice(0, 3).map(pm => (
               <div key={pm.id} style={{ padding: '10px 20px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
@@ -879,7 +879,7 @@ export const Dashboard: React.FC = () => {
         </DCard>
 
         {/* CARD C — Reservas de Hoje */}
-        <DCard style={{ padding: 0 }}>
+        <DCard style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '18px 20px 10px' }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Reservas de Hoje</div>
@@ -890,7 +890,7 @@ export const Dashboard: React.FC = () => {
             <div style={{ fontSize: 12, color: C.muted }}>Áreas comuns</div>
           </div>
           {todayReservations.length === 0 ? (
-            <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+            <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, borderTop: '1px solid rgba(0,0,0,0.05)', flex: 1 }}>
               <CalendarDays size={38} color="#CBD5E1" />
               <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Nenhuma reserva agendada para hoje</span>
               <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>{availableAreasCount} área(s) disponíveis para agendamento</span>
@@ -899,7 +899,7 @@ export const Dashboard: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div>
+            <div style={{ flex: 1 }}>
               {todayReservations.slice(0, 3).map(res => (
                 <div key={res.id} style={{ padding: '10px 20px', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                   <div>
