@@ -35,7 +35,7 @@ export const Maintenance: React.FC = () => {
 
   const { success, warning } = useToast();
 
-  const orders = useAppStore(state => state.maintenanceOrders);
+  const orders = useAppStore(state => state.workOrders);
   const addWorkOrder = useAppStore(state => state.addWorkOrder);
   const updateWorkOrderStatus = useAppStore(state => state.updateWorkOrderStatus);
   const prevMaintenance = useAppStore(state => state.preventiveMaintenance);
@@ -82,6 +82,22 @@ export const Maintenance: React.FC = () => {
     }
   };
 
+  const handleDragStart = (e: React.DragEvent, orderId: string) => {
+    e.dataTransfer.setData('orderId', orderId);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Necessário para permitir o drop
+  };
+
+  const handleDrop = (e: React.DragEvent, newStatus: WorkOrderStatus) => {
+    e.preventDefault();
+    const orderId = e.dataTransfer.getData('orderId');
+    if (orderId) {
+      handleStatusChange(orderId, newStatus);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER */}
@@ -104,7 +120,7 @@ export const Maintenance: React.FC = () => {
       </div>
 
       {/* ABAS */}
-      <div className="border-b border-[var(--color-border)] flex items-center gap-4 text-sm font-semibold">
+      <div className="border-b border-[var(--color-border)] flex items-center gap-4 text-sm font-semibold overflow-x-auto whitespace-nowrap">
         <button
           onClick={() => setActiveTab('kanban')}
           className={`pb-3 border-b-2 transition-colors ${
@@ -113,7 +129,7 @@ export const Maintenance: React.FC = () => {
               : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
           }`}
         >
-          Quadro Kanban (Fluxo de OS)
+          Ordens de serviços
         </button>
         <button
           onClick={() => setActiveTab('table')}
@@ -158,30 +174,34 @@ export const Maintenance: React.FC = () => {
             return (
               <div
                 key={col.key}
-                className={`bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/70 rounded-2xl border-t-4 ${col.color} p-3.5 flex flex-col shadow-xs`}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, col.key)}
+                className={`bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/70 rounded-[20px] border-t-4 ${col.color} p-4 flex flex-col shadow-xs transition-colors hover:bg-slate-100/50 dark:hover:bg-slate-800/50`}
                 style={{ minHeight: '480px' }}
               >
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/50 dark:border-slate-800/60 px-0.5">
-                  <span className="text-xs font-bold text-[var(--color-text)] tracking-tight">
+                  <span className="text-sm font-bold text-[var(--color-text)] tracking-tight">
                     {col.title}
                   </span>
-                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-white dark:bg-slate-800 text-[var(--color-text-muted)] shadow-xs border border-slate-200/50 dark:border-slate-700/50">
+                  <span className="px-2.5 py-1 text-xs font-bold rounded-full bg-white dark:bg-slate-800 text-[var(--color-text-muted)] shadow-xs border border-slate-200/50 dark:border-slate-700/50">
                     {colOrders.length}
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-2.5 overflow-y-auto">
+                <div className="flex-1 space-y-3 overflow-y-auto pb-2">
                   {colOrders.map(order => (
                     <div
                       key={order.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, order.id)}
                       onClick={() => {
                         setSelectedOrder(order);
                         setIsOrderDetailsModalOpen(true);
                       }}
-                      className="p-3.5 rounded-xl bg-white dark:bg-slate-800/90 hover:bg-slate-50/60 dark:hover:bg-slate-800 shadow-xs hover:shadow-md border border-slate-200/50 dark:border-slate-700/40 hover:border-blue-400/40 dark:hover:border-blue-500/40 transition-all duration-150 cursor-pointer text-xs group hover:-translate-y-0.5"
+                      className="p-5 rounded-2xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 shadow-sm hover:shadow-md border border-slate-200/60 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-200 cursor-grab active:cursor-grabbing text-xs group"
                     >
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-bold text-[var(--color-primary)] text-[11px] group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-[var(--color-primary)] text-xs group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
                           {order.id}
                         </span>
                         <Badge
@@ -195,14 +215,14 @@ export const Maintenance: React.FC = () => {
                         </Badge>
                       </div>
 
-                      <div className="font-semibold text-sm text-[var(--color-text)] line-clamp-2 mb-2 leading-snug">
+                      <div className="font-semibold text-sm text-[var(--color-text)] line-clamp-2 mb-3 leading-relaxed">
                         {order.title}
                       </div>
 
-                      <div className="text-[11px] text-[var(--color-text-muted)] flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/40">
-                        <span className="truncate font-medium text-slate-500 dark:text-slate-400">{order.area}</span>
+                      <div className="text-xs text-[var(--color-text-muted)] flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-700/60">
+                        <span className="truncate font-medium text-slate-500 dark:text-slate-400 mr-2">{order.area}</span>
                         {order.estimatedAmount && (
-                          <span className="font-bold text-[var(--color-text)]">
+                          <span className="font-bold text-[var(--color-text)] whitespace-nowrap">
                             {security.maskMoney(order.estimatedAmount)}
                           </span>
                         )}
@@ -211,8 +231,11 @@ export const Maintenance: React.FC = () => {
                   ))}
 
                   {colOrders.length === 0 && (
-                    <div className="py-16 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
-                      Nenhuma OS nesta etapa
+                    <div className="py-16 flex flex-col items-center justify-center text-center opacity-60">
+                      <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600 mb-3 flex items-center justify-center text-slate-400 dark:text-slate-500">
+                        <Plus size={20} />
+                      </div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Arraste uma OS para cá</span>
                     </div>
                   )}
                 </div>
