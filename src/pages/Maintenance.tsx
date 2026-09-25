@@ -176,10 +176,13 @@ export const Maintenance: React.FC = () => {
                 key={col.key}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, col.key)}
-                className={`bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/70 rounded-[20px] border-t-4 ${col.color} p-4 flex flex-col shadow-xs transition-colors hover:bg-slate-100/50 dark:hover:bg-slate-800/50`}
-                style={{ minHeight: '480px' }}
+                className={`bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/70 rounded-[20px] border-t-4 ${col.color} flex flex-col shadow-xs transition-colors hover:bg-slate-100/50 dark:hover:bg-slate-800/50`}
+                style={{ minHeight: '480px', padding: '16px 12px' }}
               >
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/50 dark:border-slate-800/60 px-3">
+                <div 
+                  className="flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/60"
+                  style={{ paddingBottom: '12px', marginBottom: '16px', paddingLeft: '8px', paddingRight: '8px' }}
+                >
                   <span className="text-sm font-bold text-[var(--color-text)] tracking-tight">
                     {col.title}
                   </span>
@@ -188,7 +191,10 @@ export const Maintenance: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-3 overflow-y-auto pb-2 px-1">
+                <div 
+                  className="flex-1 space-y-3 overflow-y-auto"
+                  style={{ paddingBottom: '8px', paddingLeft: '8px', paddingRight: '8px' }}
+                >
                   {colOrders.map(order => (
                     <div
                       key={order.id}
