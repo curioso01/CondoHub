@@ -564,898 +564,404 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════════════
-          LAYOUT DE DUAS COLUNAS
-          ════════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          SEÇÃO 2 — 4 KPI CARDS (full-width, 4 colunas iguais)
+          ══════════════════════════════════════════════════════════════════════ */}
       <div
         style={{
-          display: 'flex',
-          gap: 20,
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: 16,
         }}
       >
-        {/* ─── COLUNA ESQUERDA ─────────────────────────────────────────────── */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SEÇÃO 2 — 4 KPI CARDS
-              ═══════════════════════════════════════════════════════════════════ */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 16,
-            }}
-          >
-            {/* KPI 1 — CAIXA ATUAL */}
-            <DCard>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <SLabel>Caixa Atual</SLabel>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: 'rgba(16,185,129,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: C.positive,
-                  }}
-                >
-                  <DollarSign size={18} />
-                </div>
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 4 }}>
-                {security.maskMoney(latestFm.balance)}
-              </div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
-                Fundo de reserva preservado
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                {cashChange >= 0 ? (
-                  <ArrowUpRight size={14} color={C.positive} />
-                ) : (
-                  <ArrowDownRight size={14} color={C.negative} />
-                )}
-                <span style={{ color: cashChange >= 0 ? C.positive : C.negative, fontWeight: 600 }}>
-                  {cashChange >= 0 ? '+' : ''}{cashChange.toFixed(1)}%
-                </span>
-                <span style={{ color: C.muted }}>vs mês anterior</span>
-              </div>
-            </DCard>
-
-            {/* KPI 2 — INADIMPLÊNCIA */}
-            <DCard>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <SLabel>Inadimplência</SLabel>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: 'rgba(239,68,68,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: C.negative,
-                  }}
-                >
-                  <AlertTriangle size={18} />
-                </div>
-              </div>
-              <div
-                style={{
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: defaultRateColor,
-                  lineHeight: 1,
-                  marginBottom: 4,
-                }}
-              >
-                {defaultRate.toFixed(1)}%
-              </div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
-                {security.maskMoney(overdueAmount)} a liquidar
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
-                {defaultWorse ? (
-                  <ArrowUpRight size={14} color={C.negative} />
-                ) : (
-                  <ArrowDownRight size={14} color={C.positive} />
-                )}
-                <span
-                  style={{
-                    color: defaultWorse ? C.negative : C.positive,
-                    fontWeight: 600,
-                  }}
-                >
-                  {defaultWorse ? 'Atraso' : 'Melhora'}
-                </span>
-                <span style={{ color: C.muted }}>vs mês anterior</span>
-              </div>
-            </DCard>
-
-            {/* KPI 3 — OCORRÊNCIAS ATIVAS */}
-            <DCard>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <SLabel>Ocorrências Ativas</SLabel>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: 'rgba(99,102,241,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: C.purple,
-                  }}
-                >
-                  <MessageSquare size={18} />
-                </div>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ fontSize: 32, fontWeight: 700, color: C.text, lineHeight: 1 }}>
-                  {activeOccurrences.length}
-                </span>
-                {hasUrgent && (
-                  <InlineBadge color="#9B1C1C" bg="#FDE8E8">Urgente</InlineBadge>
-                )}
-              </div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
-                SLA médio de resposta: até 48h
-              </div>
-              <div style={{ fontSize: 12, color: C.muted }}>
-                {activeOccurrences.filter(o => o.status === 'Em análise').length} em análise
-              </div>
-            </DCard>
-
-            {/* KPI 4 — PRÓXIMO VENCIMENTO */}
-            <DCard>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <SLabel>Próximo Vencimento</SLabel>
-                <div
-                  style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: 'rgba(245,158,11,0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: C.accent,
-                  }}
-                >
-                  <Calendar size={18} />
-                </div>
-              </div>
-              <div style={{ fontSize: 32, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 4 }}>
-                {nextDue ? nextDue.due : '—'}
-              </div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
-                {nextDue?.type ?? 'Taxa condominial'}
-              </div>
-              <div style={{ fontSize: 12, color: C.muted }}>
-                {nextDueUnits} unidade(s) a vencer
-              </div>
-            </DCard>
+        {/* KPI 1 — CAIXA ATUAL */}
+        <DCard style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <SLabel>Caixa Atual</SLabel>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(16,185,129,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.positive }}>
+              <DollarSign size={16} />
+            </div>
           </div>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SEÇÃO 3 — GRÁFICO PRINCIPAL (area chart)
-              ═══════════════════════════════════════════════════════════════════ */}
-          <DCard>
-            {/* Header do card */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 16,
-                flexWrap: 'wrap',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
-                  Fluxo Financeiro &amp; Balanço
-                </div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                  Evolução mensal de receitas arrecadadas vs despesas operacionais
-                </div>
-              </div>
-
-              {/* Seletor de período */}
-              <div
-                style={{
-                  display: 'flex',
-                  background: C.bg,
-                  borderRadius: 8,
-                  padding: 3,
-                  gap: 2,
-                }}
-              >
-                {(['3m', '6m', '12m'] as Period[]).map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    style={{
-                      padding: '5px 12px',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      border: 'none',
-                      background: period === p ? C.primary : 'transparent',
-                      color: period === p ? '#FFFFFF' : C.muted,
-                      transition: 'all 150ms ease',
-                    }}
-                  >
-                    {periodLabels[p]}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Métricas rápidas */}
-            <div style={{ display: 'flex', gap: 28, marginBottom: 20, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background: C.primary,
-                    display: 'inline-block',
-                  }}
-                />
-                <div>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Receitas Mês
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: C.positive }}>
-                    {security.maskMoney(latestSlice.revenue)}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span
-                  style={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    background: C.purple,
-                    display: 'inline-block',
-                  }}
-                />
-                <div>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Despesas Mês
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: C.negative }}>
-                    {security.maskMoney(latestSlice.expenses)}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <ArrowUpRight size={16} color={superavit >= 0 ? C.positive : C.negative} />
-                <div>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Superávit
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 16,
-                      fontWeight: 700,
-                      color: superavit >= 0 ? C.positive : C.negative,
-                    }}
-                  >
-                    {security.maskMoney(superavit)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Canvas */}
-            <div style={{ position: 'relative', height: 260 }}>
-              <canvas ref={chartRef} />
-            </div>
-          </DCard>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SEÇÃO 4 — INDICADORES DE CONFORMIDADE
-              ═══════════════════════════════════════════════════════════════════ */}
-          <DCard style={{ padding: '20px 24px' }}>
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: 20,
-              }}
-            >
-              {[
-                {
-                  n: '01',
-                  label: 'Adimplência das Cotas',
-                  value: adimPct,
-                  color: C.positive,
-                },
-                {
-                  n: '02',
-                  label: 'Manutenções em Dia',
-                  value: maintPct,
-                  color: C.primary,
-                },
-                {
-                  n: '03',
-                  label: 'Resolução no Prazo',
-                  value: resolvedPct,
-                  color: C.purple,
-                },
-              ].map(ind => (
-                <div key={ind.n}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span
-                        style={{
-                          width: 22,
-                          height: 22,
-                          borderRadius: '50%',
-                          background: C.primary,
-                          color: '#FFFFFF',
-                          fontSize: 10,
-                          fontWeight: 700,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {ind.n}
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>
-                        {ind.label}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: 14, fontWeight: 700, color: ind.color }}>
-                      {ind.value.toFixed(0)}%
-                    </span>
-                  </div>
-                  <ProgressBar value={ind.value} color={ind.color} />
-                </div>
-              ))}
-            </div>
-          </DCard>
-
-          {/* ═══════════════════════════════════════════════════════════════════
-              SEÇÃO 5 — 3 CARDS OPERACIONAIS
-              ═══════════════════════════════════════════════════════════════════ */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-              gap: 16,
-              alignItems: 'start',
-            }}
-          >
-            {/* CARD A — Inadimplentes em Destaque */}
-            <DCard style={{ padding: 0 }}>
-              <div style={{ padding: '20px 20px 12px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 2,
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
-                    Inadimplentes em Destaque
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }}
-                    onClick={() => navigate('/financial')}
-                  >
-                    Ver todos <ChevronRight size={12} />
-                  </button>
-                </div>
-                <div style={{ fontSize: 12, color: C.muted }}>Cobrança e regularização</div>
-              </div>
-
-              <div>
-                {overdueCurrent.slice(0, 3).map((r, i) => (
-                  <div
-                    key={r.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 8,
-                      padding: '10px 20px',
-                      borderTop: i === 0 ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(0,0,0,0.05)',
-                    }}
-                  >
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                        <span
-                          style={{
-                            background: '#F1F5F9',
-                            color: '#475569',
-                            borderRadius: 4,
-                            padding: '1px 6px',
-                            fontSize: 11,
-                            fontWeight: 700,
-                          }}
-                        >
-                          {r.unit}
-                        </span>
-                        <span style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
-                          {r.resident}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11, color: C.muted }}>
-                        Vencido em {r.due} •{' '}
-                        <strong style={{ color: C.negative }}>
-                          {security.maskMoney(r.amount)}
-                        </strong>
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      style={{ fontSize: 12, gap: 4, flexShrink: 0 }}
-                      onClick={() => handleWhatsApp(r.resident)}
-                    >
-                      <Send size={12} /> WhatsApp
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  padding: '10px 20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: 12,
-                  borderTop: '1px solid rgba(0,0,0,0.05)',
-                }}
-              >
-                <span style={{ color: C.muted }}>Régua automatizada</span>
-                <span style={{ color: C.positive, fontWeight: 600 }}>Cobrança ativa</span>
-              </div>
-            </DCard>
-
-            {/* CARD B — Próximas Manutenções */}
-            <DCard style={{ padding: 0 }}>
-              <div style={{ padding: '20px 20px 12px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 2,
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
-                    Próximas Manutenções
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }}
-                    onClick={() => navigate('/maintenance')}
-                  >
-                    Cronograma <ChevronRight size={12} />
-                  </button>
-                </div>
-                <div style={{ fontSize: 12, color: C.muted }}>Preventivas e vistorias</div>
-              </div>
-
-              <div>
-                {prevMaint
-                  .slice()
-                  .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
-                  .slice(0, 3)
-                  .map((pm, i) => (
-                    <div
-                      key={pm.id}
-                      style={{
-                        padding: '10px 20px',
-                        borderTop: '1px solid rgba(0,0,0,0.05)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          gap: 8,
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: C.text,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: 170,
-                          }}
-                        >
-                          {pm.equipment}
-                        </span>
-                        <span className={maintBadgeClass(pm.status)}>
-                          {pm.status}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          fontSize: 11,
-                          color: C.muted,
-                        }}
-                      >
-                        <span>{pm.supplier}</span>
-                        <span>Venc.: {pm.nextDate}</span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-
-              <div
-                style={{
-                  padding: '10px 20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: 12,
-                  borderTop: '1px solid rgba(0,0,0,0.05)',
-                }}
-              >
-                <span style={{ color: C.muted }}>Plano Preventivo</span>
-                <span style={{ color: C.primary, fontWeight: 600 }}>
-                  {prevMaint.length} agendadas
-                </span>
-              </div>
-            </DCard>
-
-            {/* CARD C — Reservas de Hoje */}
-            <DCard style={{ padding: 0 }}>
-              <div style={{ padding: '20px 20px 12px' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    marginBottom: 2,
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
-                    Reservas de Hoje
-                  </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }}
-                    onClick={() => navigate('/reservations')}
-                  >
-                    Agenda <ChevronRight size={12} />
-                  </button>
-                </div>
-                <div style={{ fontSize: 12, color: C.muted }}>Áreas comuns</div>
-              </div>
-
-              {todayReservations.length === 0 ? (
-                <div
-                  style={{
-                    padding: '24px 20px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 8,
-                    borderTop: '1px solid rgba(0,0,0,0.05)',
-                  }}
-                >
-                  <CalendarDays size={40} color="#CBD5E1" />
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
-                    Nenhuma reserva agendada para hoje
-                  </span>
-                  <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>
-                    {availableAreasCount} área(s) disponíveis para agendamento
-                  </span>
-                  <button
-                    className="btn btn-outline btn-sm"
-                    style={{ marginTop: 4, fontSize: 12 }}
-                    onClick={() => navigate('/reservations')}
-                  >
-                    Agendar Área Comum
-                  </button>
-                </div>
-              ) : (
-                <div>
-                  {todayReservations.slice(0, 3).map(res => (
-                    <div
-                      key={res.id}
-                      style={{
-                        padding: '10px 20px',
-                        borderTop: '1px solid rgba(0,0,0,0.05)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 8,
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
-                          {res.areaName}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.muted }}>
-                          {res.timeSlot} • Un. {res.unit} • {res.resident}
-                        </div>
-                      </div>
-                      <span
-                        className={
-                          res.status === 'Confirmada'
-                            ? 'badge badge-success'
-                            : 'badge badge-warning'
-                        }
-                      >
-                        {res.status}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div
-                style={{
-                  padding: '10px 20px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: 12,
-                  borderTop: '1px solid rgba(0,0,0,0.05)',
-                }}
-              >
-                <span style={{ color: C.muted }}>Áreas Comuns</span>
-                <span style={{ color: C.positive, fontWeight: 600 }}>Uso monitorado</span>
-              </div>
-            </DCard>
+          <div style={{ fontSize: 26, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 3 }}>
+            {security.maskMoney(latestFm.balance)}
           </div>
-        </div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Fundo de reserva preservado</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+            {cashChange >= 0
+              ? <ArrowUpRight size={13} color={C.positive} />
+              : <ArrowDownRight size={13} color={C.negative} />}
+            <span style={{ color: cashChange >= 0 ? C.positive : C.negative, fontWeight: 600 }}>
+              {cashChange >= 0 ? '+' : ''}{cashChange.toFixed(1)}%
+            </span>
+            <span style={{ color: C.muted }}>vs mês anterior</span>
+          </div>
+        </DCard>
 
-        {/* ─── COLUNA DIREITA ───────────────────────────────────────────────── */}
-        <div
-          style={{
-            width: 320,
-            flexShrink: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 20,
-          }}
-        >
-          {/* ═══════════════════════════════════════════════════════════════════
-              CARD DIREITA 1 — Gauge de Adimplência
-              ═══════════════════════════════════════════════════════════════════ */}
-          <DCard>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
-                Taxa de Adimplência
+        {/* KPI 2 — INADIMPLÊNCIA */}
+        <DCard style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <SLabel>Inadimplência</SLabel>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.negative }}>
+              <AlertTriangle size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: defaultRateColor, lineHeight: 1, marginBottom: 3 }}>
+            {defaultRate.toFixed(1)}%
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>{security.maskMoney(overdueAmount)} a liquidar</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 11 }}>
+            {defaultWorse
+              ? <ArrowUpRight size={13} color={C.negative} />
+              : <ArrowDownRight size={13} color={C.positive} />}
+            <span style={{ color: defaultWorse ? C.negative : C.positive, fontWeight: 600 }}>
+              {defaultWorse ? 'Atraso' : 'Melhora'}
+            </span>
+            <span style={{ color: C.muted }}>vs mês anterior</span>
+          </div>
+        </DCard>
+
+        {/* KPI 3 — OCORRÊNCIAS ATIVAS */}
+        <DCard style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <SLabel>Ocorrências Ativas</SLabel>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.purple }}>
+              <MessageSquare size={16} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+            <span style={{ fontSize: 26, fontWeight: 700, color: C.text, lineHeight: 1 }}>
+              {activeOccurrences.length}
+            </span>
+            {hasUrgent && (
+              <InlineBadge color="#9B1C1C" bg="#FDE8E8">Urgente</InlineBadge>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>SLA médio de resposta: até 48h</div>
+          <div style={{ fontSize: 11, color: C.muted }}>
+            {activeOccurrences.filter(o => o.status === 'Em análise').length} em análise
+          </div>
+        </DCard>
+
+        {/* KPI 4 — PRÓXIMO VENCIMENTO */}
+        <DCard style={{ padding: '18px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <SLabel>Próximo Vencimento</SLabel>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(245,158,11,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: C.accent }}>
+              <Calendar size={16} />
+            </div>
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 3 }}>
+            {nextDue ? nextDue.due : '—'}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>
+            {nextDue?.type ?? 'Taxa condominial'}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted }}>
+            {nextDueUnits} unidade(s) a vencer
+          </div>
+        </DCard>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SEÇÃO 3 — FLUXO FINANCEIRO (esq.) + GAUGE ADIMPLÊNCIA (dir.)
+          ══════════════════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
+
+        {/* ── Gráfico de Fluxo Financeiro (flex:1) ── */}
+        <DCard style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
+                Fluxo Financeiro &amp; Balanço
               </div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                Último período de competência
+                Evolução mensal de receitas arrecadadas vs despesas operacionais
               </div>
             </div>
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'center',
-                marginBottom: 16,
-              }}
-            >
-              <GaugeSVG percent={adimPct} />
-            </div>
-
-            {/* Resumo dos recebíveis */}
-            <div
-              style={{
-                background: C.bg,
-                borderRadius: 8,
-                padding: '12px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
-              {[
-                { label: 'Pagos', count: receivables.filter(r => r.status === 'Pago').length, color: C.positive },
-                { label: 'Pendentes', count: receivables.filter(r => r.status === 'Pendente').length, color: C.accent },
-                { label: 'Vencidos', count: receivables.filter(r => r.status === 'Vencido').length, color: C.negative },
-              ].map(item => (
-                <div
-                  key={item.label}
+            {/* Seletor de período */}
+            <div style={{ display: 'flex', background: C.bg, borderRadius: 8, padding: 3, gap: 2 }}>
+              {(['3m', '6m', '12m'] as Period[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
+                    padding: '5px 12px',
+                    borderRadius: 6,
                     fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    border: 'none',
+                    background: period === p ? C.primary : 'transparent',
+                    color: period === p ? '#FFFFFF' : C.muted,
+                    transition: 'all 150ms ease',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        background: item.color,
-                        display: 'inline-block',
-                      }}
-                    />
-                    <span style={{ color: C.muted }}>{item.label}</span>
-                  </div>
-                  <span style={{ fontWeight: 700, color: item.color }}>{item.count}</span>
-                </div>
+                  {periodLabels[p]}
+                </button>
               ))}
             </div>
-          </DCard>
+          </div>
 
-          {/* ═══════════════════════════════════════════════════════════════════
-              CARD DIREITA 2 — Feed de Atividades (Auditoria)
-              ═══════════════════════════════════════════════════════════════════ */}
-          <DCard>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 16,
-              }}
-            >
+          {/* Métricas rápidas */}
+          <div style={{ display: 'flex', gap: 28, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: C.primary, display: 'inline-block' }} />
               <div>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: C.text,
-                  }}
-                >
-                  <Activity size={15} color={C.primary} />
-                  Feed de Atividades
+                <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Receitas Mês
                 </div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
-                  Últimos registros automáticos
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.positive }}>
+                  {security.maskMoney(latestSlice.revenue)}
                 </div>
               </div>
             </div>
-
-            {/* Cabeçalhos da mini-tabela */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '60px 1fr',
-                gap: 8,
-                padding: '0 0 8px',
-                borderBottom: '1px solid rgba(0,0,0,0.05)',
-                marginBottom: 4,
-              }}
-            >
-              {['HORÁRIO', 'AÇÃO / MÓDULO'].map(h => (
-                <span
-                  key={h}
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: C.muted,
-                  }}
-                >
-                  {h}
-                </span>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: C.purple, display: 'inline-block' }} />
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Despesas Mês
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: C.negative }}>
+                  {security.maskMoney(latestSlice.expenses)}
+                </div>
+              </div>
             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <ArrowUpRight size={16} color={superavit >= 0 ? C.positive : C.negative} />
+              <div>
+                <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Superávit
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: superavit >= 0 ? C.positive : C.negative }}>
+                  {security.maskMoney(superavit)}
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-              {auditLogs.slice(0, 5).map((log, i) => (
-                <div
-                  key={log.id}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '60px 1fr',
-                    gap: 8,
-                    padding: '9px 0',
-                    borderBottom:
-                      i < 4 ? '1px solid rgba(0,0,0,0.04)' : 'none',
-                    alignItems: 'start',
-                  }}
-                >
-                  <span style={{ fontSize: 11, color: C.muted, paddingTop: 1 }}>
-                    {relTime(log.timestamp)}
+          {/* Canvas */}
+          <div style={{ position: 'relative', height: 240, flex: 1 }}>
+            <canvas ref={chartRef} />
+          </div>
+        </DCard>
+
+        {/* ── Taxa de Adimplência — Gauge (width: 280px) ── */}
+        <DCard style={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Taxa de Adimplência</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Último período de competência</div>
+          </div>
+
+          {/* Gauge SVG centralizado */}
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0' }}>
+            <GaugeSVG percent={adimPct} />
+          </div>
+
+          {/* Resumo dos recebíveis */}
+          <div style={{ background: C.bg, borderRadius: 8, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {[
+              { label: 'Pagos',     count: receivables.filter(r => r.status === 'Pago').length,     color: C.positive },
+              { label: 'Pendentes', count: receivables.filter(r => r.status === 'Pendente').length, color: C.accent   },
+              { label: 'Vencidos',  count: receivables.filter(r => r.status === 'Vencido').length,  color: C.negative },
+            ].map(item => (
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.color, display: 'inline-block' }} />
+                  <span style={{ color: C.muted }}>{item.label}</span>
+                </div>
+                <span style={{ fontWeight: 700, color: item.color }}>{item.count}</span>
+              </div>
+            ))}
+          </div>
+        </DCard>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SEÇÃO 4 — INDICADORES DE CONFORMIDADE (full-width)
+          ══════════════════════════════════════════════════════════════════════ */}
+      <DCard style={{ padding: '18px 24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+          {[
+            { n: '01', label: 'Adimplência das Cotas',   value: adimPct,     color: C.positive },
+            { n: '02', label: 'Manutenções em Dia',       value: maintPct,    color: C.primary  },
+            { n: '03', label: 'Resolução no Prazo',       value: resolvedPct, color: C.purple   },
+          ].map(ind => (
+            <div key={ind.n}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 22, height: 22, borderRadius: '50%', background: C.primary, color: '#FFFFFF', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {ind.n}
                   </span>
-                  <div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: 6,
-                        marginBottom: 2,
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 12,
-                          fontWeight: 600,
-                          color: C.text,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          maxWidth: 130,
-                        }}
-                      >
-                        {log.userName}
-                      </span>
-                      <span className="badge badge-info" style={{ fontSize: 10 }}>
-                        {log.module}
-                      </span>
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: C.muted,
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                      } as React.CSSProperties}
-                    >
-                      {log.action}
-                    </span>
+                  <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>{ind.label}</span>
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: ind.color }}>{ind.value.toFixed(0)}%</span>
+              </div>
+              <ProgressBar value={ind.value} color={ind.color} />
+            </div>
+          ))}
+        </div>
+      </DCard>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SEÇÃO 5 — 3 CARDS OPERACIONAIS (full-width, 3 colunas)
+          ══════════════════════════════════════════════════════════════════════ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, alignItems: 'start' }}>
+
+        {/* CARD A — Inadimplentes em Destaque */}
+        <DCard style={{ padding: 0 }}>
+          <div style={{ padding: '18px 20px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Inadimplentes em Destaque</div>
+              <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }} onClick={() => navigate('/financial')}>
+                Ver todos <ChevronRight size={12} />
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted }}>Cobrança e regularização</div>
+          </div>
+          <div>
+            {overdueCurrent.slice(0, 3).map((r, i) => (
+              <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 20px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <span style={{ background: '#F1F5F9', color: '#475569', borderRadius: 4, padding: '1px 6px', fontSize: 11, fontWeight: 700 }}>{r.unit}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 120 }}>{r.resident}</span>
                   </div>
+                  <div style={{ fontSize: 11, color: C.muted }}>
+                    Vencido em {r.due} • <strong style={{ color: C.negative }}>{security.maskMoney(r.amount)}</strong>
+                  </div>
+                </div>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, gap: 4, flexShrink: 0 }} onClick={() => handleWhatsApp(r.resident)}>
+                  <Send size={12} /> WhatsApp
+                </button>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', fontSize: 12, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+            <span style={{ color: C.muted }}>Régua automatizada</span>
+            <span style={{ color: C.positive, fontWeight: 600 }}>Cobrança ativa</span>
+          </div>
+        </DCard>
+
+        {/* CARD B — Próximas Manutenções */}
+        <DCard style={{ padding: 0 }}>
+          <div style={{ padding: '18px 20px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Próximas Manutenções</div>
+              <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }} onClick={() => navigate('/maintenance')}>
+                Cronograma <ChevronRight size={12} />
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted }}>Preventivas e vistorias</div>
+          </div>
+          <div>
+            {prevMaint.slice().sort((a, b) => a.nextDate.localeCompare(b.nextDate)).slice(0, 3).map(pm => (
+              <div key={pm.id} style={{ padding: '10px 20px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 170 }}>
+                    {pm.equipment}
+                  </span>
+                  <span className={pm.status === 'Vencido' ? 'badge badge-danger' : pm.status === 'Proximo' ? 'badge badge-warning' : 'badge badge-success'}>
+                    {pm.status}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: C.muted }}>
+                  <span>{pm.supplier}</span>
+                  <span>Venc.: {pm.nextDate}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', fontSize: 12, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+            <span style={{ color: C.muted }}>Plano Preventivo</span>
+            <span style={{ color: C.primary, fontWeight: 600 }}>{prevMaint.length} agendadas</span>
+          </div>
+        </DCard>
+
+        {/* CARD C — Reservas de Hoje */}
+        <DCard style={{ padding: 0 }}>
+          <div style={{ padding: '18px 20px 10px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 2 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>Reservas de Hoje</div>
+              <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }} onClick={() => navigate('/reservations')}>
+                Agenda <ChevronRight size={12} />
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted }}>Áreas comuns</div>
+          </div>
+          {todayReservations.length === 0 ? (
+            <div style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+              <CalendarDays size={38} color="#CBD5E1" />
+              <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>Nenhuma reserva agendada para hoje</span>
+              <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>{availableAreasCount} área(s) disponíveis para agendamento</span>
+              <button className="btn btn-outline btn-sm" style={{ marginTop: 4, fontSize: 12 }} onClick={() => navigate('/reservations')}>
+                Agendar Área Comum
+              </button>
+            </div>
+          ) : (
+            <div>
+              {todayReservations.slice(0, 3).map(res => (
+                <div key={res.id} style={{ padding: '10px 20px', borderTop: '1px solid rgba(0,0,0,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{res.areaName}</div>
+                    <div style={{ fontSize: 11, color: C.muted }}>{res.timeSlot} • Un. {res.unit} • {res.resident}</div>
+                  </div>
+                  <span className={res.status === 'Confirmada' ? 'badge badge-success' : 'badge badge-warning'}>{res.status}</span>
                 </div>
               ))}
             </div>
-
-            <button
-              className="btn btn-ghost btn-sm"
-              style={{
-                width: '100%',
-                marginTop: 12,
-                fontSize: 12,
-                color: C.primary,
-                justifyContent: 'center',
-              }}
-              onClick={() => navigate('/settings')}
-            >
-              Ver todos os logs →
-            </button>
-          </DCard>
-        </div>
-        {/* /coluna direita */}
+          )}
+          <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', fontSize: 12, borderTop: '1px solid rgba(0,0,0,0.05)' }}>
+            <span style={{ color: C.muted }}>Áreas Comuns</span>
+            <span style={{ color: C.positive, fontWeight: 600 }}>Uso monitorado</span>
+          </div>
+        </DCard>
       </div>
-      {/* /layout de duas colunas */}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          SEÇÃO 6 — FEED DE ATIVIDADES (full-width)
+          ══════════════════════════════════════════════════════════════════════ */}
+      <DCard>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: C.text }}>
+              <Activity size={15} color={C.primary} />
+              Feed de Atividades do Sistema
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>Últimos registros automáticos</div>
+          </div>
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: 12, color: C.primary }} onClick={() => navigate('/settings')}>
+            Ver todos os logs →
+          </button>
+        </div>
+
+        {/* Tabela */}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {['HORÁRIO', 'USUÁRIO', 'AÇÃO REALIZADA', 'MÓDULO'].map(h => (
+                  <th key={h} style={{ padding: '8px 12px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: C.muted, borderBottom: '1px solid rgba(0,0,0,0.06)', textAlign: 'left', whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.slice(0, 6).map((log, i) => (
+                <tr key={log.id} style={{ borderBottom: i < 5 ? '1px solid rgba(0,0,0,0.04)' : 'none' }}>
+                  <td style={{ padding: '10px 12px', fontSize: 12, color: C.muted, whiteSpace: 'nowrap' }}>{relTime(log.timestamp)}</td>
+                  <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 600, color: C.text, whiteSpace: 'nowrap' }}>{log.userName}</td>
+                  <td style={{ padding: '10px 12px', fontSize: 12, color: C.text }}>{log.action}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span className="badge badge-info" style={{ fontSize: 11 }}>{log.module}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DCard>
     </div>
   );
 };
