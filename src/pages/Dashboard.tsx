@@ -1,170 +1,559 @@
-import React, { useState } from 'react';
+// CONDOHUB — DASHBOARD EXECUTIVO
+// Design inspirado em Dipa Inhouse / Shopeers (Dribbble)
+// Layout de duas colunas, gauge SVG, area chart Chart.js, sem bordas visíveis.
+
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store/useAppStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { security } from '../lib/security';
-import { Badge } from '../components/ui/Badge';
-import { Modal } from '../components/ui/Modal';
 import { useToast } from '../hooks/useToast';
-import { ModernInfographicCharts } from '../components/dashboard/ModernInfographicCharts';
 import {
   DollarSign,
   AlertTriangle,
-  Wrench,
-  CalendarDays,
-  Clock,
-  Send,
-  CheckCircle2,
-  Activity,
-  AlertOctagon,
+  MessageSquare,
   Calendar,
-  ChevronRight,
   TrendingUp,
-  FileText
+  Plus,
+  Send,
+  CalendarDays,
+  ArrowUpRight,
+  ArrowDownRight,
+  Activity,
+  ChevronRight,
 } from 'lucide-react';
 
+// ─── Variáveis de cor inline (dark mode via CSS vars) ─────────────────────────
+// Usaremos var(--color-*) do styles.css + algumas inline para os graficos
+
+const C = {
+  positive: '#10B981',
+  negative: '#EF4444',
+  primary:  '#1A56DB',
+  accent:   '#F59E0B',
+  purple:   '#6366F1',
+  muted:    'var(--color-text-muted)',
+  text:     'var(--color-text)',
+  surface:  'var(--color-surface)',
+  bg:       'var(--color-bg)',
+  border:   'var(--color-border)',
+} as const;
+
+// ─── Card wrapper ──────────────────────────────────────────────────────────────
+const DCard: React.FC<{
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+}> = ({ children, style, className }) => (
+  <div
+    className={className}
+    style={{
+      background: C.surface,
+      borderRadius: 12,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04)',
+      padding: 24,
+      ...style,
+    }}
+  >
+    {children}
+  </div>
+);
+
+// ─── Section label ─────────────────────────────────────────────────────────────
+const SLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <span
+    style={{
+      fontSize: 11,
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: '0.08em',
+      color: C.muted,
+    }}
+  >
+    {children}
+  </span>
+);
+
+// ─── Badge inline ──────────────────────────────────────────────────────────────
+interface InlineBadgeProps {
+  color: string;
+  bg: string;
+  children: React.ReactNode;
+}
+const InlineBadge: React.FC<InlineBadgeProps> = ({ color, bg, children }) => (
+  <span
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      borderRadius: 999,
+      padding: '2px 10px',
+      fontSize: 11,
+      fontWeight: 600,
+      color,
+      background: bg,
+      whiteSpace: 'nowrap',
+    }}
+  >
+    {children}
+  </span>
+);
+
+// ─── Gauge SVG (semicírculo) ───────────────────────────────────────────────────
+const GaugeSVG: React.FC<{ percent: number }> = ({ percent }) => {
+  const r = 60;
+  const cx = 80;
+  const cy = 80;
+  const circumference = Math.PI * r; // semicírculo = metade
+
+  const clampedPct = Math.min(100, Math.max(0, percent));
+  const offset = circumference - (clampedPct / 100) * circumference;
+
+  const gaugeColor =
+    clampedPct >= 95 ? C.positive : clampedPct >= 80 ? C.accent : C.negative;
+
+  return (
+    <svg width={160} height={90} viewBox="0 0 160 90">
+      {/* trilha */}
+      <path
+        d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+        fill="none"
+        stroke="#E2E8F0"
+        strokeWidth={12}
+        strokeLinecap="round"
+      />
+      {/* preenchimento */}
+      <path
+        d={`M${cx - r},${cy} A${r},${r} 0 0,1 ${cx + r},${cy}`}
+        fill="none"
+        stroke={gaugeColor}
+        strokeWidth={12}
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+      />
+      {/* percentual */}
+      <text
+        x={cx}
+        y={cy - 4}
+        textAnchor="middle"
+        fontSize={26}
+        fontWeight={700}
+        fill={gaugeColor}
+        fontFamily="Inter, sans-serif"
+      >
+        {clampedPct.toFixed(1)}%
+      </text>
+      <text
+        x={cx}
+        y={cy + 14}
+        textAnchor="middle"
+        fontSize={10}
+        fill="#94A3B8"
+        fontFamily="Inter, sans-serif"
+      >
+        On track for 100% target
+      </text>
+    </svg>
+  );
+};
+
+// ─── Progress Bar ──────────────────────────────────────────────────────────────
+const ProgressBar: React.FC<{ value: number; color: string }> = ({ value, color }) => (
+  <div
+    style={{
+      height: 4,
+      borderRadius: 999,
+      background: '#E2E8F0',
+      overflow: 'hidden',
+      marginTop: 6,
+    }}
+  >
+    <div
+      style={{
+        height: '100%',
+        width: `${Math.min(100, value)}%`,
+        background: color,
+        borderRadius: 999,
+        transition: 'width 0.5s ease',
+      }}
+    />
+  </div>
+);
+
+// ─── Tipo de período do gráfico ────────────────────────────────────────────────
+type Period = '3m' | '6m' | '12m';
+
+// ═════════════════════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═════════════════════════════════════════════════════════════════════════════
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { success } = useToast();
+  const toast = useToast();
 
-  const condo = useAppStore(state => state.condo);
-  const receivables = useAppStore(state => state.receivables);
-  const financialMonths = useAppStore(state => state.financialMonths);
-  const occurrences = useAppStore(state => state.occurrences);
-  const reservations = useAppStore(state => state.reservations);
-  const prevMaintenance = useAppStore(state => state.preventiveMaintenance);
-  const auditLogs = useAppStore(state => state.auditLogs);
+  // ─── Stores ────────────────────────────────────────────────────────────────
+  const user         = useAuthStore(s => s.user);
+  const condo        = useAppStore(s => s.condo);
+  const receivables  = useAppStore(s => s.receivables);
+  const financialMonths = useAppStore(s => s.financialMonths);
+  const prevMaint    = useAppStore(s => s.preventiveMaintenance);
+  const occurrences  = useAppStore(s => s.occurrences);
+  const reservations = useAppStore(s => s.reservations);
+  const auditLogs    = useAppStore(s => s.auditLogs);
+  const commonAreas  = useAppStore(s => s.commonAreas);
 
-  // Estado para Modal de Cobrança WhatsApp
-  const [selectedDebtor, setSelectedDebtor] = useState<any>(null);
-  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
+  // ─── Estado local ──────────────────────────────────────────────────────────
+  const [period, setPeriod] = useState<Period>('6m');
+  const chartRef  = useRef<HTMLCanvasElement>(null);
+  const chartInst = useRef<any>(null);
 
-  // 1. Cálculos de KPIs
+  // ─── Greeting ──────────────────────────────────────────────────────────────
+  const firstName = user?.name?.split(' ')[0] ?? 'Gestor';
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+
+  // ─── Cálculos financeiros ──────────────────────────────────────────────────
   const currentMonth = '2026-09';
-  const totalReceivablesMonth = receivables
-    .filter(r => r.ref === currentMonth)
-    .reduce((acc, r) => acc + r.amount, 0);
+  const prevMonth    = '2026-08';
 
-  const pendingMonth = receivables
-    .filter(r => r.ref === currentMonth && (r.status === 'Pendente' || r.status === 'Vencido'))
-    .reduce((acc, r) => acc + r.amount, 0);
+  const rcvCurrent  = receivables.filter(r => r.ref === currentMonth);
+  const rcvPrev     = receivables.filter(r => r.ref === prevMonth);
 
-  const defaultRate =
-    totalReceivablesMonth > 0
-      ? ((pendingMonth / totalReceivablesMonth) * 100).toFixed(1)
-      : '0.0';
+  const paidCurrent = rcvCurrent.filter(r => r.status === 'Pago').length;
+  const totalCurrent = rcvCurrent.length || 1;
+  const overdueCurrent = rcvCurrent.filter(r => r.status === 'Vencido');
+  const overdueAmount = overdueCurrent.reduce((s, r) => s + r.amount, 0);
+  const defaultRate = ((overdueCurrent.length / totalCurrent) * 100);
 
-  const currentMonthFinancial =
-    financialMonths.find(f => f.month === '2026-09' || f.month === 'Set/26') ||
-    financialMonths[financialMonths.length - 1];
-  const currentCash = currentMonthFinancial ? currentMonthFinancial.balance : 38520.0;
+  // adimplencia global
+  const allPaid  = receivables.filter(r => r.status === 'Pago').length;
+  const allTotal = receivables.length || 1;
+  const adimPct  = (allPaid / allTotal) * 100;
 
-  const openOccurrencesCount = occurrences.filter(
-    o => o.status === 'Aberta' || o.status === 'Em análise'
-  ).length;
+  // caixa
+  const fmList = financialMonths.length > 0 ? financialMonths : [
+    { month: '2026-01', revenue: 38400, expenses: 31200, balance: 7200 },
+    { month: '2026-02', revenue: 37800, expenses: 29800, balance: 8000 },
+    { month: '2026-03', revenue: 38400, expenses: 34500, balance: 3900 },
+    { month: '2026-04', revenue: 39200, expenses: 32100, balance: 7100 },
+    { month: '2026-05', revenue: 38400, expenses: 30400, balance: 8000 },
+    { month: '2026-06', revenue: 37600, expenses: 33800, balance: 3800 },
+    { month: '2026-07', revenue: 38400, expenses: 31900, balance: 6500 },
+    { month: '2026-08', revenue: 38400, expenses: 29500, balance: 8900 },
+    { month: '2026-09', revenue: 39000, expenses: 32700, balance: 6300 },
+  ];
+  const latestFm = fmList[fmList.length - 1] ?? { balance: 0, revenue: 0, expenses: 0 };
+  const prevFm   = fmList[fmList.length - 2] ?? latestFm;
+  const cashChange = prevFm.balance !== 0
+    ? (((latestFm.balance - prevFm.balance) / Math.abs(prevFm.balance)) * 100)
+    : 0;
 
-  const upcomingReceivable = receivables
-    .filter(r => r.status === 'Pendente')
-    .sort((a, b) => a.due.localeCompare(b.due))[0];
-
-  const nextDueDate = upcomingReceivable ? upcomingReceivable.due : '10/10/2026';
-
-  // 2. Alertas Administrativos
-  const todayStr = new Date().toISOString().substring(0, 10);
-  const criticalOverdue = receivables.filter(r => {
-    if (r.status !== 'Vencido') return false;
-    const diffDays = Math.floor(
-      (new Date(todayStr).getTime() - new Date(r.due).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return diffDays >= 30;
-  });
-
-  const criticalMaintenance = prevMaintenance.filter(
-    pm => pm.status === 'Vencido' || pm.status === 'Proximo'
+  // ocorrências
+  const activeOccurrences = occurrences.filter(
+    o => o.status !== 'Resolvida' && o.status !== 'Arquivada'
   );
+  const hasUrgent = activeOccurrences.some(o => o.status === 'Aberta' && o.priority === 'Urgente');
 
-  const handleOpenWhatsApp = (debtor: any) => {
-    setSelectedDebtor(debtor);
-    setIsWhatsAppModalOpen(true);
-  };
+  // próximo vencimento
+  const pendingRcv = receivables
+    .filter(r => r.status === 'Pendente')
+    .sort((a, b) => a.due.localeCompare(b.due));
+  const nextDue = pendingRcv[0] ?? null;
+  const nextDueUnits = pendingRcv.length;
 
-  const handleSendWhatsAppSimulation = () => {
-    success(`Mensagem de cobrança enviada via WhatsApp para Unidade ${selectedDebtor?.unit}!`);
-    setIsWhatsAppModalOpen(false);
-  };
+  // alertas críticos
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const overdueOld = receivables.filter(r => {
+    if (r.status !== 'Vencido') return false;
+    const diff = Math.floor((Date.now() - new Date(r.due).getTime()) / 86400000);
+    return diff >= 30;
+  });
+  const expiredMaint = prevMaint.filter(p => p.status === 'Vencido');
+  const hasCritical = overdueOld.length > 0 || expiredMaint.length > 0;
 
-  const getRelativeTime = (timestamp?: string) => {
-    if (!timestamp) return 'Recente';
+  // conformidade
+  const maintOk = prevMaint.filter(p => p.status === 'Em dia').length;
+  const maintTotal = prevMaint.length || 1;
+  const maintPct = (maintOk / maintTotal) * 100;
+
+  const resolvedOcc = occurrences.filter(o => o.status === 'Resolvida').length;
+  const occTotal = occurrences.length || 1;
+  const resolvedPct = (resolvedOcc / occTotal) * 100;
+
+  // reservas de hoje
+  const todayReservations = reservations.filter(r => r.date === todayStr);
+  const availableAreasCount = commonAreas.filter(a => a.active).length;
+
+  // helper de tempo relativo
+  const relTime = (ts?: string) => {
+    if (!ts) return 'Recente';
     try {
-      const now = new Date();
-      const past = new Date(timestamp);
-      const diffSec = Math.floor((now.getTime() - past.getTime()) / 1000);
-      if (diffSec < 60) return 'Agora mesmo';
-      const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `Há ${diffMin} min`;
-      const diffHours = Math.floor(diffMin / 60);
-      if (diffHours < 24) return `Há ${diffHours}h`;
-      return timestamp.substring(0, 10);
+      const diff = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
+      if (diff < 60) return 'Agora';
+      if (diff < 3600) return `Há ${Math.floor(diff / 60)}min`;
+      if (diff < 86400) return `Há ${Math.floor(diff / 3600)}h`;
+      return ts.slice(0, 10);
     } catch {
-      return timestamp;
+      return ts.slice(0, 10);
     }
   };
 
-  const todayReservations = reservations.filter(r => r.date === todayStr);
+  // ─── Construir dados do gráfico ────────────────────────────────────────────
+  const formatLabel = (m: string) => {
+    const parts = m.split('-');
+    if (parts.length === 2) {
+      const idx = parseInt(parts[1], 10) - 1;
+      return ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][idx] ?? m;
+    }
+    return m;
+  };
 
+  const sliceCount = period === '3m' ? 3 : period === '6m' ? 6 : 12;
+  const sliced     = fmList.slice(Math.max(0, fmList.length - sliceCount));
+  const chartLabels   = sliced.map(f => formatLabel(f.month));
+  const chartRevenues = sliced.map(f => f.revenue);
+  const chartExpenses = sliced.map(f => f.expenses);
+
+  // superávit do último período selecionado
+  const latestSlice = sliced[sliced.length - 1] ?? latestFm;
+  const superavit = latestSlice.revenue - latestSlice.expenses;
+
+  // ─── Criar / destruir o gráfico ────────────────────────────────────────────
+  const buildChart = useCallback(() => {
+    const ChartJS = (window as any).Chart;
+    if (!ChartJS || !chartRef.current) return;
+
+    if (chartInst.current) {
+      chartInst.current.destroy();
+      chartInst.current = null;
+    }
+
+    const ctx = chartRef.current.getContext('2d');
+    if (!ctx) return;
+
+    const isDark = document.body.classList.contains('dark-mode');
+    const gridColor  = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+    const tickColor  = isDark ? '#64748B' : '#94A3B8';
+    const tooltipBg  = isDark ? '#1E293B' : '#FFFFFF';
+    const tooltipTxt = isDark ? '#F1F5F9' : '#1E293B';
+
+    // gradiente receitas
+    const gRev = ctx.createLinearGradient(0, 0, 0, 260);
+    gRev.addColorStop(0, 'rgba(26,86,219,0.12)');
+    gRev.addColorStop(1, 'rgba(26,86,219,0.00)');
+
+    // gradiente despesas
+    const gExp = ctx.createLinearGradient(0, 0, 0, 260);
+    gExp.addColorStop(0, 'rgba(99,102,241,0.12)');
+    gExp.addColorStop(1, 'rgba(99,102,241,0.00)');
+
+    chartInst.current = new ChartJS(ctx, {
+      type: 'line',
+      data: {
+        labels: chartLabels,
+        datasets: [
+          {
+            label: 'Receitas',
+            data: chartRevenues,
+            borderColor: C.primary,
+            backgroundColor: gRev,
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: C.primary,
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2,
+          },
+          {
+            label: 'Despesas',
+            data: chartExpenses,
+            borderColor: C.purple,
+            backgroundColor: gExp,
+            fill: true,
+            tension: 0.4,
+            borderWidth: 2,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBackgroundColor: C.purple,
+            pointBorderColor: '#FFFFFF',
+            pointBorderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: tooltipBg,
+            titleColor: tooltipTxt,
+            bodyColor: tooltipTxt,
+            borderColor: 'rgba(0,0,0,0.08)',
+            borderWidth: 1,
+            padding: 12,
+            cornerRadius: 8,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+            callbacks: {
+              label: (ctx: any) =>
+                ` ${ctx.dataset.label}: ${security.maskMoney(ctx.parsed.y)}`,
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { color: tickColor, font: { size: 11 } },
+            border: { display: false },
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: tickColor,
+              font: { size: 11 },
+              callback: (v: any) =>
+                v >= 1000 ? `R$${(v / 1000).toFixed(0)}k` : `R$${v}`,
+            },
+            border: { display: false },
+          },
+        },
+      },
+    });
+  }, [chartLabels, chartRevenues, chartExpenses]);
+
+  // Recriar ao mudar período ou tema
+  useEffect(() => {
+    buildChart();
+    return () => {
+      if (chartInst.current) {
+        chartInst.current.destroy();
+        chartInst.current = null;
+      }
+    };
+  }, [buildChart]);
+
+  // Observer para dark mode
+  useEffect(() => {
+    const obs = new MutationObserver(() => buildChart());
+    obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, [buildChart]);
+
+  // ─── Inadimplência — cor do valor ──────────────────────────────────────────
+  const defaultRateColor =
+    defaultRate > 5 ? C.negative : defaultRate > 2 ? C.accent : C.positive;
+
+  // ─── Manutenção — badge CSS por status ─────────────────────────────────────
+  const maintBadgeClass = (s: string) =>
+    s === 'Vencido'
+      ? 'badge badge-danger'
+      : s === 'Proximo'
+      ? 'badge badge-warning'
+      : 'badge badge-success';
+
+  // ─── WhatsApp simulado ─────────────────────────────────────────────────────
+  const handleWhatsApp = (name: string) => {
+    toast.success(`Cobrança enviada para ${name} (simulado)`);
+  };
+
+  // ─── Comparação inadimplência (mês anterior) ───────────────────────────────
+  const overduePrev = rcvPrev.filter(r => r.status === 'Vencido').length;
+  const overduePrevTotal = rcvPrev.length || 1;
+  const defaultRatePrev = (overduePrev / overduePrevTotal) * 100;
+  const defaultWorse = defaultRate > defaultRatePrev;
+
+  // ─── Período — label dos botões ────────────────────────────────────────────
+  const periodLabels: Record<Period, string> = {
+    '3m': '3 Meses',
+    '6m': '6 Meses',
+    '12m': '1 Ano',
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* CABEÇALHO EXECUTIVO ESTILO QCLAY */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+      {/* ═══════════════════════════════════════════════════════════════════════
+          SEÇÃO 1 — HEADER
+          ═══════════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 16,
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* Saudação */}
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Dashboard Executivo
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: C.text, margin: 0 }}>
+            {greeting}, {firstName} 👋
           </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            {condo?.name || 'Condomínio Solar das Palmeiras'} • {condo?.totalUnits || 48} Unidades • Gestão Financeira Ativa
+          <p style={{ fontSize: 13, color: C.muted, marginTop: 4 }}>
+            {condo?.name ?? 'Condomínio Solar das Palmeiras'} •{' '}
+            {condo?.totalUnits ?? 48} Unidades • Gestão Ativa
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        {/* Ações rápidas */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
+            className="btn btn-outline btn-sm"
+            style={{ fontSize: 13, borderRadius: 8 }}
             onClick={() => navigate('/financial')}
-            className="btn btn-sm btn-outline flex items-center gap-1.5 rounded-xl border-slate-200 dark:border-slate-700 font-semibold"
           >
-            <DollarSign size={14} /> Fluxo de Caixa
+            <TrendingUp size={14} /> Fluxo de Caixa
           </button>
           <button
+            className="btn btn-primary btn-sm"
+            style={{ fontSize: 13, borderRadius: 8 }}
             onClick={() => navigate('/maintenance')}
-            className="btn btn-sm btn-primary flex items-center gap-1.5 rounded-xl shadow-xs font-semibold"
           >
-            <Wrench size={14} /> Nova O.S.
+            <Plus size={14} /> Nova O.S.
           </button>
         </div>
       </div>
 
-      {/* BANNER DE ALERTAS ADMINISTRATIVOS (SE HOUVER) */}
-      {(criticalOverdue.length > 0 || criticalMaintenance.length > 0) && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-200">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0">
-              <AlertOctagon size={18} className="text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <span className="font-bold">Atenção Administrativa: </span>
-              <span>
-                {criticalOverdue.length} cobrança(s) com atraso superior a 30 dias e{' '}
-                {criticalMaintenance.length} preventiva(s) requerendo vistoria imediata.
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+      {/* Banner de alerta crítico */}
+      {hasCritical && (
+        <div
+          style={{
+            background: 'rgba(245,158,11,0.08)',
+            borderLeft: '3px solid #F59E0B',
+            borderRadius: 8,
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: 13, color: C.text }}>
+            ⚠{' '}
+            <strong>Atenção:</strong>{' '}
+            {overdueOld.length} cobrança(s) vencida(s) há mais de 30 dias e{' '}
+            {expiredMaint.length} preventiva(s) vencida(s).
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
             <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: 12, color: C.primary }}
               onClick={() => navigate('/financial')}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors"
             >
               Ver Inadimplentes
             </button>
             <button
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: 12, color: C.primary }}
               onClick={() => navigate('/maintenance')}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-300 border border-amber-300/40 hover:bg-amber-50 dark:hover:bg-slate-700 transition-colors"
             >
               Ver Preventivas
             </button>
@@ -172,343 +561,898 @@ export const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* 4 KPIS DINÂMICOS — ALINHAMENTO E BORDAS SUAVES (QCLAY) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* KPI 1: Caixa Atual */}
-        <div className="rounded-2xl p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Caixa Atual
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-              <DollarSign size={18} />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-tight">
-            {security.maskMoney(currentCash)}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center gap-1.5">
-            <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-            <span>Fundo de reserva preservado</span>
-          </div>
-        </div>
+      {/* ════════════════════════════════════════════════════════════════════════
+          LAYOUT DE DUAS COLUNAS
+          ════════════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 20,
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* ─── COLUNA ESQUERDA ─────────────────────────────────────────────── */}
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-        {/* KPI 2: Inadimplência Mês */}
-        <div className="rounded-2xl p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Inadimplência Mês
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
-              <AlertTriangle size={18} />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-3 tracking-tight">
-            {defaultRate}%
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-            <span>{security.maskMoney(pendingMonth)} a liquidar</span>
-            <span className="text-[11px] font-semibold text-rose-500 bg-rose-50 dark:bg-rose-950/40 px-1.5 py-0.5 rounded-md">
-              Atraso
-            </span>
-          </div>
-        </div>
-
-        {/* KPI 3: Ocorrências Ativas */}
-        <div className="rounded-2xl p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Ocorrências Ativas
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
-              <Clock size={18} />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-tight">
-            {openOccurrencesCount}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
-            SLA médio de resposta: até 48h
-          </div>
-        </div>
-
-        {/* KPI 4: Próximo Vencimento */}
-        <div className="rounded-2xl p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              Próximo Vencimento
-            </span>
-            <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
-              <Calendar size={18} />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-3 tracking-tight">
-            {nextDueDate}
-          </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
-            Taxa condominial ordinária
-          </div>
-        </div>
-      </div>
-
-      {/* ÁREA DE ANALYTICS VISUAL INSPIRADA NO DRIBBLE DA QCLAY */}
-      <ModernInfographicCharts onNavigateFinancial={() => navigate('/financial')} />
-
-      {/* 3 CARDS OPERACIONAIS — ALINHAMENTO PERFEITO E BORDAS LIMPAS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-        {/* Card Operacional 1: Inadimplentes com Cobrança WhatsApp */}
-        <div className="rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between h-full">
-          <div>
-            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800/80">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  Inadimplentes em Destaque
-                </h3>
-                <p className="text-[11px] text-slate-400">Cobrança e regularização</p>
+          {/* ═══════════════════════════════════════════════════════════════════
+              SEÇÃO 2 — 4 KPI CARDS
+              ═══════════════════════════════════════════════════════════════════ */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: 16,
+            }}
+          >
+            {/* KPI 1 — CAIXA ATUAL */}
+            <DCard>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <SLabel>Caixa Atual</SLabel>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(16,185,129,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: C.positive,
+                  }}
+                >
+                  <DollarSign size={18} />
+                </div>
               </div>
-              <button
-                onClick={() => navigate('/financial')}
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
+              <div style={{ fontSize: 32, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 4 }}>
+                {security.maskMoney(latestFm.balance)}
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+                Fundo de reserva preservado
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                {cashChange >= 0 ? (
+                  <ArrowUpRight size={14} color={C.positive} />
+                ) : (
+                  <ArrowDownRight size={14} color={C.negative} />
+                )}
+                <span style={{ color: cashChange >= 0 ? C.positive : C.negative, fontWeight: 600 }}>
+                  {cashChange >= 0 ? '+' : ''}{cashChange.toFixed(1)}%
+                </span>
+                <span style={{ color: C.muted }}>vs mês anterior</span>
+              </div>
+            </DCard>
+
+            {/* KPI 2 — INADIMPLÊNCIA */}
+            <DCard>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <SLabel>Inadimplência</SLabel>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(239,68,68,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: C.negative,
+                  }}
+                >
+                  <AlertTriangle size={18} />
+                </div>
+              </div>
+              <div
+                style={{
+                  fontSize: 32,
+                  fontWeight: 700,
+                  color: defaultRateColor,
+                  lineHeight: 1,
+                  marginBottom: 4,
+                }}
               >
-                Ver todos <ChevronRight size={13} />
-              </button>
+                {defaultRate.toFixed(1)}%
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+                {security.maskMoney(overdueAmount)} a liquidar
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                {defaultWorse ? (
+                  <ArrowUpRight size={14} color={C.negative} />
+                ) : (
+                  <ArrowDownRight size={14} color={C.positive} />
+                )}
+                <span
+                  style={{
+                    color: defaultWorse ? C.negative : C.positive,
+                    fontWeight: 600,
+                  }}
+                >
+                  {defaultWorse ? 'Atraso' : 'Melhora'}
+                </span>
+                <span style={{ color: C.muted }}>vs mês anterior</span>
+              </div>
+            </DCard>
+
+            {/* KPI 3 — OCORRÊNCIAS ATIVAS */}
+            <DCard>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <SLabel>Ocorrências Ativas</SLabel>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(99,102,241,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: C.purple,
+                  }}
+                >
+                  <MessageSquare size={18} />
+                </div>
+              </div>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  marginBottom: 4,
+                }}
+              >
+                <span style={{ fontSize: 32, fontWeight: 700, color: C.text, lineHeight: 1 }}>
+                  {activeOccurrences.length}
+                </span>
+                {hasUrgent && (
+                  <InlineBadge color="#9B1C1C" bg="#FDE8E8">Urgente</InlineBadge>
+                )}
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+                SLA médio de resposta: até 48h
+              </div>
+              <div style={{ fontSize: 12, color: C.muted }}>
+                {activeOccurrences.filter(o => o.status === 'Em análise').length} em análise
+              </div>
+            </DCard>
+
+            {/* KPI 4 — PRÓXIMO VENCIMENTO */}
+            <DCard>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <SLabel>Próximo Vencimento</SLabel>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'rgba(245,158,11,0.1)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: C.accent,
+                  }}
+                >
+                  <Calendar size={18} />
+                </div>
+              </div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: C.text, lineHeight: 1, marginBottom: 4 }}>
+                {nextDue ? nextDue.due : '—'}
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>
+                {nextDue?.type ?? 'Taxa condominial'}
+              </div>
+              <div style={{ fontSize: 12, color: C.muted }}>
+                {nextDueUnits} unidade(s) a vencer
+              </div>
+            </DCard>
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════════════
+              SEÇÃO 3 — GRÁFICO PRINCIPAL (area chart)
+              ═══════════════════════════════════════════════════════════════════ */}
+          <DCard>
+            {/* Header do card */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 16,
+                flexWrap: 'wrap',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: C.text }}>
+                  Fluxo Financeiro &amp; Balanço
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  Evolução mensal de receitas arrecadadas vs despesas operacionais
+                </div>
+              </div>
+
+              {/* Seletor de período */}
+              <div
+                style={{
+                  display: 'flex',
+                  background: C.bg,
+                  borderRadius: 8,
+                  padding: 3,
+                  gap: 2,
+                }}
+              >
+                {(['3m', '6m', '12m'] as Period[]).map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: 'none',
+                      background: period === p ? C.primary : 'transparent',
+                      color: period === p ? '#FFFFFF' : C.muted,
+                      transition: 'all 150ms ease',
+                    }}
+                  >
+                    {periodLabels[p]}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-2">
-              {receivables
-                .filter(r => r.status === 'Vencido')
-                .slice(0, 4)
-                .map(r => (
+            {/* Métricas rápidas */}
+            <div style={{ display: 'flex', gap: 28, marginBottom: 20, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: C.primary,
+                    display: 'inline-block',
+                  }}
+                />
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Receitas Mês
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.positive }}>
+                    {security.maskMoney(latestSlice.revenue)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    background: C.purple,
+                    display: 'inline-block',
+                  }}
+                />
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Despesas Mês
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: C.negative }}>
+                    {security.maskMoney(latestSlice.expenses)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <ArrowUpRight size={16} color={superavit >= 0 ? C.positive : C.negative} />
+                <div>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Superávit
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                      color: superavit >= 0 ? C.positive : C.negative,
+                    }}
+                  >
+                    {security.maskMoney(superavit)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Canvas */}
+            <div style={{ position: 'relative', height: 260 }}>
+              <canvas ref={chartRef} />
+            </div>
+          </DCard>
+
+          {/* ═══════════════════════════════════════════════════════════════════
+              SEÇÃO 4 — INDICADORES DE CONFORMIDADE
+              ═══════════════════════════════════════════════════════════════════ */}
+          <DCard style={{ padding: '20px 24px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: 20,
+              }}
+            >
+              {[
+                {
+                  n: '01',
+                  label: 'Adimplência das Cotas',
+                  value: adimPct,
+                  color: C.positive,
+                },
+                {
+                  n: '02',
+                  label: 'Manutenções em Dia',
+                  value: maintPct,
+                  color: C.primary,
+                },
+                {
+                  n: '03',
+                  label: 'Resolução no Prazo',
+                  value: resolvedPct,
+                  color: C.purple,
+                },
+              ].map(ind => (
+                <div key={ind.n}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span
+                        style={{
+                          width: 22,
+                          height: 22,
+                          borderRadius: '50%',
+                          background: C.primary,
+                          color: '#FFFFFF',
+                          fontSize: 10,
+                          fontWeight: 700,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {ind.n}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 500, color: C.text }}>
+                        {ind.label}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: ind.color }}>
+                      {ind.value.toFixed(0)}%
+                    </span>
+                  </div>
+                  <ProgressBar value={ind.value} color={ind.color} />
+                </div>
+              ))}
+            </div>
+          </DCard>
+
+          {/* ═══════════════════════════════════════════════════════════════════
+              SEÇÃO 5 — 3 CARDS OPERACIONAIS
+              ═══════════════════════════════════════════════════════════════════ */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: 16,
+              alignItems: 'start',
+            }}
+          >
+            {/* CARD A — Inadimplentes em Destaque */}
+            <DCard style={{ padding: 0 }}>
+              <div style={{ padding: '20px 20px 12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    marginBottom: 2,
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
+                    Inadimplentes em Destaque
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }}
+                    onClick={() => navigate('/financial')}
+                  >
+                    Ver todos <ChevronRight size={12} />
+                  </button>
+                </div>
+                <div style={{ fontSize: 12, color: C.muted }}>Cobrança e regularização</div>
+              </div>
+
+              <div>
+                {overdueCurrent.slice(0, 3).map((r, i) => (
                   <div
                     key={r.id}
-                    className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between gap-3"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      padding: '10px 20px',
+                      borderTop: i === 0 ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(0,0,0,0.05)',
+                    }}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
-                        {r.unit}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <span
+                          style={{
+                            background: '#F1F5F9',
+                            color: '#475569',
+                            borderRadius: 4,
+                            padding: '1px 6px',
+                            fontSize: 11,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {r.unit}
+                        </span>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>
                           {r.resident}
-                        </div>
-                        <div className="text-[11px] text-slate-400 mt-0.5">
-                          Vencido • <span className="font-semibold text-rose-600">{security.maskMoney(r.amount)}</span>
-                        </div>
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted }}>
+                        Vencido em {r.due} •{' '}
+                        <strong style={{ color: C.negative }}>
+                          {security.maskMoney(r.amount)}
+                        </strong>
                       </div>
                     </div>
-
                     <button
-                      onClick={() => handleOpenWhatsApp(r)}
-                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shrink-0 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
-                      title="Cobrar via WhatsApp"
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 12, gap: 4, flexShrink: 0 }}
+                      onClick={() => handleWhatsApp(r.resident)}
                     >
                       <Send size={12} /> WhatsApp
                     </button>
                   </div>
                 ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Card Operacional 2: Próximas Manutenções Preventivas (BORDAS SUAVES / LIMPAS) */}
-        <div className="rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between h-full">
-          <div>
-            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800/80">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  Próximas Manutenções
-                </h3>
-                <p className="text-[11px] text-slate-400">Preventivas e vistorias</p>
               </div>
-              <button
-                onClick={() => navigate('/maintenance')}
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
-              >
-                Cronograma <ChevronRight size={13} />
-              </button>
-            </div>
 
-            <div className="space-y-2">
-              {prevMaintenance
-                .slice()
-                .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
-                .slice(0, 3)
-                .map(pm => (
-                  <div
-                    key={pm.id}
-                    className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-bold text-slate-900 dark:text-white truncate">
-                        {pm.equipment}
-                      </span>
-                      <Badge variant={pm.status === 'Vencido' ? 'danger' : pm.status === 'Proximo' ? 'warning' : 'success'}>
-                        {pm.status}
-                      </Badge>
-                    </div>
-                    <div className="text-[11px] text-slate-400 flex items-center justify-between mt-1">
-                      <span className="truncate">{pm.supplier}</span>
-                      <span className="font-semibold text-slate-700 dark:text-slate-300">
-                        {pm.nextDate}
-                      </span>
-                    </div>
+              <div
+                style={{
+                  padding: '10px 20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 12,
+                  borderTop: '1px solid rgba(0,0,0,0.05)',
+                }}
+              >
+                <span style={{ color: C.muted }}>Régua automatizada</span>
+                <span style={{ color: C.positive, fontWeight: 600 }}>Cobrança ativa</span>
+              </div>
+            </DCard>
+
+            {/* CARD B — Próximas Manutenções */}
+            <DCard style={{ padding: 0 }}>
+              <div style={{ padding: '20px 20px 12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    marginBottom: 2,
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
+                    Próximas Manutenções
                   </div>
-                ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Card Operacional 3: Reservas de Hoje */}
-        <div className="rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)] flex flex-col justify-between h-full">
-          <div>
-            <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800/80">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                  Reservas de Hoje
-                </h3>
-                <p className="text-[11px] text-slate-400">Ocupação das áreas comuns</p>
-              </div>
-              <button
-                onClick={() => navigate('/reservations')}
-                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5"
-              >
-                Agenda <ChevronRight size={13} />
-              </button>
-            </div>
-
-            {todayReservations.length === 0 ? (
-              <div className="py-7 text-center flex flex-col items-center justify-center gap-2">
-                <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 mb-1">
-                  <CalendarDays size={20} />
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }}
+                    onClick={() => navigate('/maintenance')}
+                  >
+                    Cronograma <ChevronRight size={12} />
+                  </button>
                 </div>
-                <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                  Nenhuma reserva para hoje
-                </p>
-                <p className="text-[11px] text-slate-400 max-w-[220px]">
-                  As áreas comuns estão disponíveis para novos agendamentos dos moradores.
-                </p>
+                <div style={{ fontSize: 12, color: C.muted }}>Preventivas e vistorias</div>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {todayReservations.map(res => (
-                  <div
-                    key={res.id}
-                    className="p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors flex items-center justify-between text-xs"
-                  >
-                    <div>
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                        <CalendarDays size={13} className="text-blue-500" />
-                        {res.areaName}
+
+              <div>
+                {prevMaint
+                  .slice()
+                  .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
+                  .slice(0, 3)
+                  .map((pm, i) => (
+                    <div
+                      key={pm.id}
+                      style={{
+                        padding: '10px 20px',
+                        borderTop: '1px solid rgba(0,0,0,0.05)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 8,
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 600,
+                            color: C.text,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: 170,
+                          }}
+                        >
+                          {pm.equipment}
+                        </span>
+                        <span className={maintBadgeClass(pm.status)}>
+                          {pm.status}
+                        </span>
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-0.5">
-                        Unidade {res.unit} • {res.resident || 'Morador'}
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: 11,
+                          color: C.muted,
+                        }}
+                      >
+                        <span>{pm.supplier}</span>
+                        <span>Venc.: {pm.nextDate}</span>
                       </div>
                     </div>
-                    <Badge variant={res.status === 'Confirmada' ? 'success' : 'warning'}>
-                      {res.status}
-                    </Badge>
+                  ))}
+              </div>
+
+              <div
+                style={{
+                  padding: '10px 20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 12,
+                  borderTop: '1px solid rgba(0,0,0,0.05)',
+                }}
+              >
+                <span style={{ color: C.muted }}>Plano Preventivo</span>
+                <span style={{ color: C.primary, fontWeight: 600 }}>
+                  {prevMaint.length} agendadas
+                </span>
+              </div>
+            </DCard>
+
+            {/* CARD C — Reservas de Hoje */}
+            <DCard style={{ padding: 0 }}>
+              <div style={{ padding: '20px 20px 12px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    justifyContent: 'space-between',
+                    marginBottom: 2,
+                  }}
+                >
+                  <div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>
+                    Reservas de Hoje
                   </div>
-                ))}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: 12, color: C.primary, padding: '2px 6px' }}
+                    onClick={() => navigate('/reservations')}
+                  >
+                    Agenda <ChevronRight size={12} />
+                  </button>
+                </div>
+                <div style={{ fontSize: 12, color: C.muted }}>Áreas comuns</div>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* FEED DE AUDITORIA & ATIVIDADES RECENTES */}
-      <div className="rounded-2xl p-6 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
-        <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-100 dark:border-slate-800/80">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 flex items-center justify-center">
-              <Activity size={16} />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
-                Feed de Atividades do Sistema
-              </h3>
-              <p className="text-[11px] text-slate-400">Trilha de auditoria em tempo real</p>
-            </div>
-          </div>
-          <span className="text-xs text-slate-400 font-medium">
-            Últimos registros automáticos
-          </span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="table w-full">
-            <thead>
-              <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                <th className="py-2.5 px-3 text-left">Horário</th>
-                <th className="py-2.5 px-3 text-left">Usuário</th>
-                <th className="py-2.5 px-3 text-left">Ação Realizada</th>
-                <th className="py-2.5 px-3 text-left">Módulo</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-              {auditLogs.slice(0, 8).map(log => (
-                <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="py-3 px-3 text-xs text-slate-400 whitespace-nowrap">
-                    {getRelativeTime(log.timestamp)}
-                  </td>
-                  <td className="py-3 px-3 font-semibold text-xs text-slate-900 dark:text-white">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-[10px] flex items-center justify-center">
-                        {log.userName ? log.userName.charAt(0).toUpperCase() : 'U'}
+              {todayReservations.length === 0 ? (
+                <div
+                  style={{
+                    padding: '24px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: 8,
+                    borderTop: '1px solid rgba(0,0,0,0.05)',
+                  }}
+                >
+                  <CalendarDays size={40} color="#CBD5E1" />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                    Nenhuma reserva agendada para hoje
+                  </span>
+                  <span style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>
+                    {availableAreasCount} área(s) disponíveis para agendamento
+                  </span>
+                  <button
+                    className="btn btn-outline btn-sm"
+                    style={{ marginTop: 4, fontSize: 12 }}
+                    onClick={() => navigate('/reservations')}
+                  >
+                    Agendar Área Comum
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  {todayReservations.slice(0, 3).map(res => (
+                    <div
+                      key={res.id}
+                      style={{
+                        padding: '10px 20px',
+                        borderTop: '1px solid rgba(0,0,0,0.05)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                          {res.areaName}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted }}>
+                          {res.timeSlot} • Un. {res.unit} • {res.resident}
+                        </div>
                       </div>
-                      <span>{log.userName}</span>
+                      <span
+                        className={
+                          res.status === 'Confirmada'
+                            ? 'badge badge-success'
+                            : 'badge badge-warning'
+                        }
+                      >
+                        {res.status}
+                      </span>
                     </div>
-                  </td>
-                  <td className="py-3 px-3 text-xs text-slate-700 dark:text-slate-300">
-                    {log.action}
-                  </td>
-                  <td className="py-3 px-3">
-                    <Badge variant="neutral">{log.module}</Badge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  ))}
+                </div>
+              )}
 
-      {/* MODAL SIMULAÇÃO DE COBRANÇA WHATSAPP */}
-      <Modal
-        isOpen={isWhatsAppModalOpen}
-        onClose={() => setIsWhatsAppModalOpen(false)}
-        title="Simular Cobrança via WhatsApp"
-        size="md"
-        footer={
-          <>
-            <button className="btn btn-outline" onClick={() => setIsWhatsAppModalOpen(false)}>
-              Cancelar
-            </button>
-            <button className="btn btn-primary flex items-center gap-1.5" onClick={handleSendWhatsAppSimulation}>
-              <Send size={14} /> Enviar Mensagem
-            </button>
-          </>
-        }
-      >
-        {selectedDebtor && (
-          <div className="space-y-3.5 text-xs">
-            <p className="text-slate-600 dark:text-slate-400">
-              Mensagem pré-formatada para envio ao morador da <b>Unidade {selectedDebtor.unit}</b> ({selectedDebtor.resident}):
-            </p>
-            <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 font-mono space-y-2 leading-relaxed text-slate-800 dark:text-slate-200">
-              <p>Olá, {selectedDebtor.resident}!</p>
-              <p>
-                Identificamos uma pendência relativa à taxa condominial da <b>Unidade {selectedDebtor.unit}</b> com vencimento em <b>{selectedDebtor.due}</b> no valor de <b>{security.maskMoney(selectedDebtor.amount)}</b>.
-              </p>
-              <p>
-                Para regularizar, acesse o Portal do Morador do CondoHub ou responda a esta mensagem para obter a segunda via atualizada do boleto/PIX.
-              </p>
-              <p>Atenciosamente,<br />Administração do {condo?.name || 'Condomínio'}</p>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              * Esta é uma simulação de régua de cobrança automatizada via WhatsApp.
-            </p>
+              <div
+                style={{
+                  padding: '10px 20px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 12,
+                  borderTop: '1px solid rgba(0,0,0,0.05)',
+                }}
+              >
+                <span style={{ color: C.muted }}>Áreas Comuns</span>
+                <span style={{ color: C.positive, fontWeight: 600 }}>Uso monitorado</span>
+              </div>
+            </DCard>
           </div>
-        )}
-      </Modal>
+        </div>
+
+        {/* ─── COLUNA DIREITA ───────────────────────────────────────────────── */}
+        <div
+          style={{
+            width: 320,
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20,
+          }}
+        >
+          {/* ═══════════════════════════════════════════════════════════════════
+              CARD DIREITA 1 — Gauge de Adimplência
+              ═══════════════════════════════════════════════════════════════════ */}
+          <DCard>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>
+                Taxa de Adimplência
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                Último período de competência
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <GaugeSVG percent={adimPct} />
+            </div>
+
+            {/* Resumo dos recebíveis */}
+            <div
+              style={{
+                background: C.bg,
+                borderRadius: 8,
+                padding: '12px 16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 8,
+              }}
+            >
+              {[
+                { label: 'Pagos', count: receivables.filter(r => r.status === 'Pago').length, color: C.positive },
+                { label: 'Pendentes', count: receivables.filter(r => r.status === 'Pendente').length, color: C.accent },
+                { label: 'Vencidos', count: receivables.filter(r => r.status === 'Vencido').length, color: C.negative },
+              ].map(item => (
+                <div
+                  key={item.label}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: '50%',
+                        background: item.color,
+                        display: 'inline-block',
+                      }}
+                    />
+                    <span style={{ color: C.muted }}>{item.label}</span>
+                  </div>
+                  <span style={{ fontWeight: 700, color: item.color }}>{item.count}</span>
+                </div>
+              ))}
+            </div>
+          </DCard>
+
+          {/* ═══════════════════════════════════════════════════════════════════
+              CARD DIREITA 2 — Feed de Atividades (Auditoria)
+              ═══════════════════════════════════════════════════════════════════ */}
+          <DCard>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 16,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: C.text,
+                  }}
+                >
+                  <Activity size={15} color={C.primary} />
+                  Feed de Atividades
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  Últimos registros automáticos
+                </div>
+              </div>
+            </div>
+
+            {/* Cabeçalhos da mini-tabela */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '60px 1fr',
+                gap: 8,
+                padding: '0 0 8px',
+                borderBottom: '1px solid rgba(0,0,0,0.05)',
+                marginBottom: 4,
+              }}
+            >
+              {['HORÁRIO', 'AÇÃO / MÓDULO'].map(h => (
+                <span
+                  key={h}
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: C.muted,
+                  }}
+                >
+                  {h}
+                </span>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {auditLogs.slice(0, 5).map((log, i) => (
+                <div
+                  key={log.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '60px 1fr',
+                    gap: 8,
+                    padding: '9px 0',
+                    borderBottom:
+                      i < 4 ? '1px solid rgba(0,0,0,0.04)' : 'none',
+                    alignItems: 'start',
+                  }}
+                >
+                  <span style={{ fontSize: 11, color: C.muted, paddingTop: 1 }}>
+                    {relTime(log.timestamp)}
+                  </span>
+                  <div>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 6,
+                        marginBottom: 2,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: C.text,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          maxWidth: 130,
+                        }}
+                      >
+                        {log.userName}
+                      </span>
+                      <span className="badge badge-info" style={{ fontSize: 10 }}>
+                        {log.module}
+                      </span>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: C.muted,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      } as React.CSSProperties}
+                    >
+                      {log.action}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              className="btn btn-ghost btn-sm"
+              style={{
+                width: '100%',
+                marginTop: 12,
+                fontSize: 12,
+                color: C.primary,
+                justifyContent: 'center',
+              }}
+              onClick={() => navigate('/settings')}
+            >
+              Ver todos os logs →
+            </button>
+          </DCard>
+        </div>
+        {/* /coluna direita */}
+      </div>
+      {/* /layout de duas colunas */}
     </div>
   );
 };
