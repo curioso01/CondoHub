@@ -90,12 +90,12 @@ export const Reports: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-[var(--color-text)] tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-[var(--color-text)] tracking-tight mb-2">
             Relatórios Gerenciais & Auditoria
           </h2>
-          <p className="text-xs sm:text-sm text-[var(--color-text-muted)] mt-0.5">
+          <p className="text-sm text-[var(--color-text-muted)]" style={{ marginTop: '10px', marginBottom: '16px' }}>
             Demonstrativos consolidados, indicadores de desempenho condominial e logs de segurança
           </p>
         </div>
@@ -117,7 +117,9 @@ export const Reports: React.FC = () => {
       </div>
 
       {/* ABAS */}
-      <div className="border-b border-[var(--color-border)] flex items-center gap-4 text-sm font-semibold">
+      <div className="border-b border-[var(--color-border)] flex items-center gap-4 text-sm font-semibold"
+        style={{ marginBottom: '32px' }}
+      >
         <button
           onClick={() => setSelectedReport('financial')}
           className={`pb-3 border-b-2 transition-colors flex items-center gap-2 ${

@@ -465,12 +465,12 @@ export const Financial: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* CABEÇALHO SUPERIOR */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
-          <h2 className="text-xl sm:text-2xl font-black text-[var(--color-text)] tracking-tight">
+          <h2 className="text-xl sm:text-2xl font-black text-[var(--color-text)] tracking-tight mb-2">
             Gestão Financeira
           </h2>
-          <p className="text-xs sm:text-sm text-[var(--color-text-muted)] mt-0.5">
+          <p className="text-sm text-[var(--color-text-muted)]" style={{ marginTop: '10px', marginBottom: '16px' }}>
             Arrecadação, controle de boletos, despesas, livro razão e sanções regimentais
           </p>
         </div>
@@ -544,7 +544,9 @@ export const Financial: React.FC = () => {
       </div>
 
       {/* NAVEGAÇÃO DE 5 ABAS */}
-      <div className="border-b border-[var(--color-border)] flex items-center gap-2 sm:gap-6 text-xs sm:text-sm font-semibold overflow-x-auto">
+      <div className="border-b border-[var(--color-border)] flex items-center gap-2 sm:gap-6 text-xs sm:text-sm font-semibold overflow-x-auto"
+        style={{ marginBottom: '32px' }}
+      >
         <button
           onClick={() => { setActiveTab('receivables'); setCurrentPage(1); }}
           className={`pb-3 border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${
