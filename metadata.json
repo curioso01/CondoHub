@@ -1,0 +1,6 @@
+{
+  "name": "CondoHub",
+  "description": "SaaS B2B completo de gestão de condomínios com 11 módulos administrativos e Portal do Morador.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
