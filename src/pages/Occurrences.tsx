@@ -431,3 +431,5 @@ export const Occurrences: React.FC = () => {
     </div>
   );
 };
+
+export default Occurrences;

@@ -1918,3 +1918,5 @@ export const Financial: React.FC = () => {
     </div>
   );
 };
+
+export default Financial;

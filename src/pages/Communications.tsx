@@ -306,3 +306,5 @@ export const Communications: React.FC = () => {
     </div>
   );
 };
+
+export default Communications;

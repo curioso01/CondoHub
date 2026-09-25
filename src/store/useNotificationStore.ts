@@ -11,8 +11,8 @@ interface NotificationState {
   get unreadCount(): number;
 
   // Ações
-  addNotification: (payload: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
-  addMany: (payloads: Omit<Notification, 'id' | 'read' | 'createdAt'>[]) => void;
+  addNotification: (payload: Omit<Notification, 'id' | 'read' | 'createdAt'> & { id?: string; read?: boolean; createdAt?: string }) => void;
+  addMany: (payloads: (Omit<Notification, 'id' | 'read' | 'createdAt'> & { id?: string; read?: boolean; createdAt?: string })[]) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
   clearAll: () => void;
@@ -31,9 +31,9 @@ export const useNotificationStore = create<NotificationState>()((set, get) => ({
   // ── addNotification ───────────────────────────────────────────────────────────
   addNotification(payload) {
     const notification: Notification = {
-      id: generateId('notif'),
-      read: false,
-      createdAt: new Date().toISOString(),
+      id: payload.id || generateId('notif'),
+      read: payload.read ?? false,
+      createdAt: payload.createdAt || new Date().toISOString(),
       ...payload,
     };
     set(state => ({

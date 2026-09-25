@@ -616,3 +616,5 @@ export const Registry: React.FC = () => {
     </div>
   );
 };
+
+export default Registry;

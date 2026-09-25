@@ -384,3 +384,5 @@ export const Portal: React.FC = () => {
     </div>
   );
 };
+
+export default Portal;

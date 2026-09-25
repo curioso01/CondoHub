@@ -1,1 +1,2 @@
-@import "tailwindcss";
+@import './condo/styles.css';
+@import 'tailwindcss';

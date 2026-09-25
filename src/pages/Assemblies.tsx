@@ -456,3 +456,5 @@ export const Assemblies: React.FC = () => {
     </div>
   );
 };
+
+export default Assemblies;

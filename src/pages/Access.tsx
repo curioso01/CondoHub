@@ -638,3 +638,5 @@ export const Access: React.FC = () => {
     </div>
   );
 };
+
+export default Access;

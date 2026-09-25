@@ -364,3 +364,5 @@ export const Reservations: React.FC = () => {
     </div>
   );
 };
+
+export default Reservations;
