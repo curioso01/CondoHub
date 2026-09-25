@@ -1,48 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import { Modal } from './Modal';
-import { AlertTriangle } from 'lucide-react';
+// CONDOHUB — COMPONENTE CONFIRM DIALOG
+// Construído sobre Modal.tsx
 
-export interface ConfirmDialogProps {
+import { useState, useEffect } from 'react';
+import { AlertTriangle, Trash2 } from 'lucide-react';
+import { Modal } from './Modal';
+
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
+interface ConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   title: string;
   message: string;
-  destructive?: boolean;
-  // Aliases for compatibility
   confirmLabel?: string;
   cancelLabel?: string;
-  isDanger?: boolean;
+  /** Se true: usuário deve digitar "CONFIRMAR" para habilitar o botão */
+  destructive?: boolean;
 }
 
-export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+const CONFIRM_WORD = 'CONFIRMAR';
+
+// ─── COMPONENTE ───────────────────────────────────────────────────────────────
+export function ConfirmDialog({
   isOpen,
   onClose,
   onConfirm,
   title,
   message,
-  destructive = false,
-  confirmLabel = 'Confirmar',
+  confirmLabel,
   cancelLabel = 'Cancelar',
-  isDanger
-}) => {
-  const isDestructive = destructive || isDanger || false;
-  const [typedConfirmation, setTypedConfirmation] = useState('');
+  destructive = false,
+}: ConfirmDialogProps) {
+  const [inputValue, setInputValue] = useState('');
+  const isConfirmEnabled = destructive ? inputValue.trim() === CONFIRM_WORD : true;
 
+  // Limpar input ao abrir/fechar
   useEffect(() => {
-    if (isOpen) {
-      setTypedConfirmation('');
-    }
+    if (!isOpen) setInputValue('');
   }, [isOpen]);
 
-  const isConfirmed = isDestructive ? typedConfirmation.trim().toUpperCase() === 'CONFIRMAR' : true;
-
   const handleConfirm = () => {
-    if (isConfirmed) {
-      onConfirm();
-      onClose();
-    }
+    if (!isConfirmEnabled) return;
+    onConfirm();
+    onClose();
   };
+
+  const defaultConfirmLabel = confirmLabel ?? (destructive ? 'Excluir Definitivamente' : 'Confirmar');
+
+  // ── FOOTER ──────────────────────────────────────────────────────────────────
+  const footer = (
+    <>
+      <button
+        className="btn btn-outline"
+        onClick={onClose}
+      >
+        {cancelLabel}
+      </button>
+      <button
+        className={`btn ${destructive ? 'btn-danger' : 'btn-primary'}`}
+        onClick={handleConfirm}
+        disabled={!isConfirmEnabled}
+        style={{
+          opacity: isConfirmEnabled ? 1 : 0.5,
+          cursor: isConfirmEnabled ? 'pointer' : 'not-allowed',
+        }}
+      >
+        {destructive && <Trash2 size={15} />}
+        {defaultConfirmLabel}
+      </button>
+    </>
+  );
 
   return (
     <Modal
@@ -50,47 +77,78 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
       onClose={onClose}
       title={title}
       size="sm"
-      footer={
-        <>
-          <button className="btn btn-outline" onClick={onClose}>
-            {cancelLabel}
-          </button>
-          <button
-            className={isDestructive ? 'btn btn-danger' : 'btn btn-primary'}
-            onClick={handleConfirm}
-            disabled={!isConfirmed}
-          >
-            {confirmLabel}
-          </button>
-        </>
-      }
+      footer={footer}
     >
-      <div className="space-y-4">
-        <div className="flex items-start gap-3">
-          {isDestructive && (
-            <div className="p-2 rounded-full bg-rose-100 dark:bg-rose-950/40 text-rose-600 shrink-0">
-              <AlertTriangle size={22} />
-            </div>
-          )}
-          <p className="text-sm text-[var(--color-text)] leading-relaxed">{message}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        {/* Ícone + Mensagem */}
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <div
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              background: destructive ? '#FDE8E8' : '#E1EFFE',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              color: destructive ? 'var(--color-danger)' : 'var(--color-primary)',
+            }}
+          >
+            <AlertTriangle size={18} />
+          </div>
+          <p
+            style={{
+              fontSize: '14px',
+              color: 'var(--color-text)',
+              lineHeight: '1.6',
+              margin: 0,
+              paddingTop: '6px',
+            }}
+          >
+            {message}
+          </p>
         </div>
 
-        {isDestructive && (
-          <div className="p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] space-y-2 text-xs">
-            <p className="font-semibold text-rose-600 dark:text-rose-400">
-              Esta é uma ação irreversível. Digite <b>CONFIRMAR</b> abaixo para prosseguir:
-            </p>
+        {/* Campo de confirmação (apenas para ações destrutivas) */}
+        {destructive && (
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label" style={{ color: 'var(--color-danger)', fontWeight: 600 }}>
+              Esta ação é irreversível. Digite <strong>{CONFIRM_WORD}</strong> para prosseguir:
+            </label>
             <input
               type="text"
-              className="form-control text-xs uppercase font-mono tracking-wider"
-              placeholder="Digite CONFIRMAR"
-              value={typedConfirmation}
-              onChange={e => setTypedConfirmation(e.target.value)}
+              className="form-control"
+              value={inputValue}
+              onChange={e => setInputValue(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleConfirm()}
+              placeholder={CONFIRM_WORD}
+              autoComplete="off"
               autoFocus
+              style={{
+                borderColor: inputValue && !isConfirmEnabled
+                  ? 'var(--color-danger)'
+                  : inputValue === CONFIRM_WORD
+                  ? 'var(--color-secondary)'
+                  : undefined,
+              }}
             />
+            {inputValue.length > 0 && !isConfirmEnabled && (
+              <p
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--color-danger)',
+                  marginTop: '4px',
+                }}
+              >
+                Digite exatamente "{CONFIRM_WORD}" para continuar.
+              </p>
+            )}
           </div>
         )}
       </div>
     </Modal>
   );
-};
+}
+
+export default ConfirmDialog;

@@ -1,279 +1,316 @@
-import React, { useState, useEffect, useRef } from 'react';
+// CONDOHUB — HEADER SUPERIOR (TOP-HEADER)
+
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth';
-import { useNotificationStore } from '../../store/useNotificationStore';
-import { useToast } from '../../hooks/useToast';
-import { Modal } from '../ui/Modal';
 import {
   Menu,
   Search,
-  Moon,
-  Sun,
   Bell,
-  User,
-  Key,
+  Sun,
+  Moon,
   LogOut,
-  ChevronRight
+  User as UserIcon,
 } from 'lucide-react';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useNotificationStore } from '../../store/useNotificationStore';
+import { getRoleLabel } from '../../lib/permissions';
+import { useDarkMode } from './AppLayout';
+import { GlobalSearch } from '../shared/GlobalSearch';
+import { NotificationPanel } from '../shared/NotificationPanel';
 
-interface HeaderProps {
-  onToggleMobileSidebar: () => void;
-  onOpenSearch: () => void;
+export interface HeaderProps {
+  onToggleSidebar?: () => void;
 }
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  '/': 'Início',
   '/dashboard': 'Dashboard',
   '/financeiro': 'Financeiro',
-  '/financial': 'Financeiro',
   '/manutencao': 'Manutenção & Obras',
-  '/maintenance': 'Manutenção & Obras',
-  '/assembleias': 'Assembleias & Votações',
-  '/assemblies': 'Assembleias & Votações',
+  '/assembleias': 'Assembleias',
   '/comunicados': 'Comunicados',
-  '/communications': 'Comunicados',
-  '/portaria': 'Portaria & Controle de Acesso',
-  '/access': 'Portaria & Controle de Acesso',
-  '/reservas': 'Reservas de Áreas Comuns',
-  '/reservations': 'Reservas de Áreas Comuns',
-  '/ocorrencias': 'Livro de Ocorrências',
-  '/occurrences': 'Livro de Ocorrências',
-  '/cadastro': 'Cadastros & Unidades',
-  '/registry': 'Cadastros & Unidades',
-  '/relatorios': 'Relatórios & Prestação de Contas',
-  '/reports': 'Relatórios & Prestação de Contas',
-  '/configuracoes': 'Configurações do Condomínio',
-  '/settings': 'Configurações do Condomínio',
-  '/portal': 'Portal do Morador'
+  '/portaria': 'Portaria & Acesso',
+  '/reservas': 'Reservas',
+  '/ocorrencias': 'Ocorrências',
+  '/cadastros': 'Cadastros',
+  '/cadastro': 'Cadastros',
+  '/relatorios': 'Relatórios & Balancete',
+  '/configuracoes': 'Configurações',
+  '/portal': 'Meu Portal',
 };
 
-export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onOpenSearch }) => {
-  const { user, logout } = useAuth();
-  const { unreadCount, setIsOpen: setIsNotificationOpen } = useNotificationStore();
-  const { success, warning } = useToast();
+export function Header({ onToggleSidebar }: HeaderProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('condohub_darkmode') === 'true';
-  });
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [currPassword, setCurrPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const user = useAuthStore(s => s.user);
+  const logout = useAuthStore(s => s.logout);
+  const unreadCount = useNotificationStore(s => s.unreadCount);
+  const { darkMode, toggleDarkMode } = useDarkMode();
 
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [isSearchOpen, setSearchOpen] = useState(false);
+  const [isNotifOpen, setNotifOpen] = useState(false);
+  const [isUserMenuOpen, setUserMenuOpen] = useState(false);
 
-  useEffect(() => {
-    if (isDark) {
-      document.body.classList.add('dark-mode');
-    } else {
-      document.body.classList.remove('dark-mode');
-    }
-    localStorage.setItem('condohub_darkmode', isDark ? 'true' : 'false');
-  }, [isDark]);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
+  // Fecha o menu de usuário ao clicar fora
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsUserMenuOpen(false);
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleTheme = () => {
-    setIsDark(prev => !prev);
-  };
+  // Atalho global Ctrl+K / Cmd+K para abrir busca
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleLogout = () => {
-    setIsUserMenuOpen(false);
+    setUserMenuOpen(false);
     logout();
     navigate('/login');
   };
 
-  const handleNavigateProfile = () => {
-    setIsUserMenuOpen(false);
-    if (user?.role === 'MORADOR') {
-      navigate('/portal');
-    } else {
-      navigate('/configuracoes');
-    }
-  };
+  // Título da página atual
+  const currentTitle = BREADCRUMB_MAP[location.pathname] || 'CondoHub';
 
-  const handleSavePassword = () => {
-    if (!currPassword || !newPassword) {
-      warning('Preencha os campos de senha.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      warning('A confirmação de senha não coincide.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      warning('A nova senha deve ter no mínimo 8 caracteres.');
-      return;
-    }
+  // Iniciais do usuário
+  const initials = user?.name
+    ? user.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+    : 'U';
 
-    success('Senha alterada com sucesso!');
-    setIsPasswordModalOpen(false);
-    setCurrPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-  };
-
-  const currentPath = location.pathname;
-  const currentLabel = BREADCRUMB_MAP[currentPath] || 'Visão Geral';
-
-  const getRoleLabel = (r?: string) => {
-    switch (r) {
-      case 'SUPER_ADMIN':
-        return 'Super Admin';
-      case 'SINDICO':
-        return 'Síndico';
-      case 'CONSELHEIRO':
-        return 'Conselheiro';
-      case 'PORTEIRO':
-        return 'Porteiro';
-      case 'MORADOR':
-        return 'Morador';
-      default:
-        return r || 'Usuário';
-    }
-  };
+  const roleText = user?.role ? getRoleLabel(user.role, user.unitId) : '';
 
   return (
     <>
-      <header id="main-header" className="flex items-center justify-between px-4 lg:px-6 h-16 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
-        {/* Lado Esquerdo: Mobile Menu + Breadcrumb + Busca */}
-        <div className="flex items-center gap-3">
+      <header id="top-header" style={{ height: '64px' }}>
+        {/* ── LADO ESQUERDO: HAMBURGER MOBILE + BREADCRUMB ───────────────── */}
+        <div className="header-left">
           <button
-            className="lg:hidden p-2 text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-            onClick={onToggleMobileSidebar}
-            aria-label="Abrir menu lateral"
+            type="button"
+            className="menu-toggle-btn"
+            onClick={onToggleSidebar}
+            aria-label="Abrir menu de navegação"
+            style={{ padding: '8px', cursor: 'pointer' }}
           >
-            <Menu size={22} />
+            <Menu size={20} />
           </button>
 
-          {/* Breadcrumb por useLocation */}
-          <div className="hidden md:flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-            <span className="font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors">
-              CondoHub
-            </span>
-            <ChevronRight size={14} className="opacity-50" />
-            <span className="font-semibold text-[var(--color-text)]">{currentLabel}</span>
+          <div className="breadcrumb" aria-label="Navegação estrutural">
+            <span>CondoHub</span>
+            <span style={{ color: 'var(--color-border)', opacity: 0.6 }}>/</span>
+            <span className="breadcrumb-current">{currentTitle}</span>
           </div>
-
-          <button
-            onClick={onOpenSearch}
-            className="header-search-btn hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors cursor-pointer ml-2"
-            title="Pressione Ctrl+K para buscar"
-          >
-            <Search size={14} />
-            <span>Buscar no condomínio...</span>
-            <kbd className="text-[10px] ml-4 px-1.5 py-0.5 rounded bg-[var(--color-bg)] border border-[var(--color-border)] font-mono">
-              Ctrl K
-            </kbd>
-          </button>
         </div>
 
-        {/* Lado Direito: Ações rápidas + Dark mode + Notificações + Dropdown Usuário */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* ── LADO DIREITO: BUSCA, NOTIFICAÇÕES, TEMA, USUÁRIO ───────────── */}
+        <div className="header-right" style={{ gap: '8px' }}>
+          {/* 1. Botão de Busca */}
           <button
-            onClick={onOpenSearch}
-            className="sm:hidden p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+            type="button"
+            className="header-btn"
+            onClick={() => setSearchOpen(true)}
+            title="Buscar no sistema (Ctrl+K)"
             aria-label="Buscar"
           >
             <Search size={18} />
           </button>
 
-          {/* Toggle Dark Mode */}
+          {/* 2. Botão Notificações */}
           <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
-            title={isDark ? 'Mudar para Tema Claro' : 'Mudar para Tema Escuro'}
-            aria-label="Alternar tema"
-          >
-            {isDark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-
-          {/* Sininho com badge (unreadCount) -> abre NotificationPanel */}
-          <button
-            onClick={() => setIsNotificationOpen(true)}
-            className="relative p-2 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
+            type="button"
+            className="header-btn"
+            onClick={() => setNotifOpen(true)}
             title="Notificações"
             aria-label="Notificações"
           >
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-xs">
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  minWidth: '18px',
+                  height: '18px',
+                  padding: '0 4px',
+                  borderRadius: '999px',
+                  background: 'var(--color-danger)',
+                  color: '#FFFFFF',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '2px solid var(--color-surface)',
+                  lineHeight: 1,
+                }}
+              >
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
             )}
           </button>
 
-          <div className="h-6 w-px bg-[var(--color-border)] mx-1" />
+          {/* 3. Toggle Dark Mode */}
+          <button
+            type="button"
+            className="header-btn"
+            onClick={toggleDarkMode}
+            title={darkMode ? 'Alternar para Modo Claro' : 'Alternar para Modo Escuro'}
+            aria-label="Alternar tema de cores"
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
 
-          {/* Dropdown Usuário */}
-          <div className="relative" ref={menuRef}>
+          {/* 4. Dropdown do Usuário */}
+          <div ref={userMenuRef} style={{ position: 'relative' }}>
             <button
-              onClick={() => setIsUserMenuOpen(prev => !prev)}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-[var(--color-bg)] transition-colors cursor-pointer"
+              type="button"
+              onClick={() => setUserMenuOpen(prev => !prev)}
               aria-expanded={isUserMenuOpen}
               aria-haspopup="true"
+              aria-label="Menu do usuário"
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
             >
-              <div className="avatar w-8 h-8 text-xs font-bold shrink-0">
-                {user?.avatar || (user?.name ? user.name.substring(0, 2).toUpperCase() : 'CH')}
-              </div>
-              <div className="hidden xl:block text-left pr-1">
-                <div className="text-xs font-semibold text-[var(--color-text)] leading-tight truncate max-w-[120px]">
-                  {user?.name}
-                </div>
-                <div className="text-[10px] text-[var(--color-text-muted)] capitalize leading-tight">
-                  {getRoleLabel(user?.role)}
-                </div>
+              <div
+                className="avatar"
+                style={{
+                  background: 'var(--color-primary)',
+                  boxShadow: '0 0 0 2px var(--color-border)',
+                }}
+              >
+                {user?.avatar || initials}
               </div>
             </button>
 
+            {/* Menu Suspenso */}
             {isUserMenuOpen && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl z-50 py-1.5 text-xs animate-in fade-in-50 zoom-in-95 duration-100">
-                <div className="px-3.5 py-2.5 border-b border-[var(--color-border)]">
-                  <p className="font-bold text-[var(--color-text)] truncate">{user?.name}</p>
-                  <p className="text-[11px] text-[var(--color-text-muted)] truncate">{user?.email}</p>
-                  <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-[var(--color-bg)] text-[10px] font-medium text-[var(--color-primary)]">
-                    {getRoleLabel(user?.role)}
-                  </span>
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 8px)',
+                  right: 0,
+                  width: '240px',
+                  background: 'var(--color-surface)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.06)',
+                  padding: '12px',
+                  zIndex: 50,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                {/* Dados do usuário */}
+                <div style={{ padding: '4px 8px' }}>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: 'var(--color-text)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {user?.name || 'Usuário'}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      color: 'var(--color-text-muted)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {user?.email}
+                  </div>
+                  <div
+                    style={{
+                      marginTop: '6px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      color: 'var(--color-primary)',
+                    }}
+                  >
+                    {roleText}
+                  </div>
                 </div>
 
-                <button
-                  onClick={handleNavigateProfile}
-                  className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
-                >
-                  <User size={15} className="text-[var(--color-text-muted)]" />
-                  <span>Perfil & Dados</span>
-                </button>
+                <div style={{ height: '1px', background: 'rgba(0,0,0,0.06)' }} />
 
-                <button
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    setIsPasswordModalOpen(true);
+                {/* Opção Meu Perfil / Informações */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 10px',
+                    fontSize: '13px',
+                    color: 'var(--color-text-muted)',
+                    borderRadius: '6px',
                   }}
-                  className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-[var(--color-text)] hover:bg-[var(--color-bg)] transition-colors"
                 >
-                  <Key size={15} className="text-[var(--color-text-muted)]" />
-                  <span>Alterar Senha</span>
-                </button>
+                  <UserIcon size={16} />
+                  <span>Unidade: {user?.unitId || 'Administração'}</span>
+                </div>
 
-                <div className="my-1 border-t border-[var(--color-border)]" />
+                <div style={{ height: '1px', background: 'rgba(0,0,0,0.06)' }} />
 
+                {/* Botão Sair */}
                 <button
+                  type="button"
                   onClick={handleLogout}
-                  className="w-full text-left px-3.5 py-2 flex items-center gap-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors font-medium"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    width: '100%',
+                    padding: '8px 10px',
+                    background: 'none',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    color: 'var(--color-danger)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'background 150ms ease',
+                  }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239, 68, 68, 0.08)';
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLButtonElement).style.background = 'none';
+                  }}
                 >
-                  <LogOut size={15} />
-                  <span>Sair da conta</span>
+                  <LogOut size={16} />
+                  <span>Sair do Sistema</span>
                 </button>
               </div>
             )}
@@ -281,56 +318,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileSidebar, onOpenSea
         </div>
       </header>
 
-      {/* Modal Alterar Senha */}
-      <Modal
-        isOpen={isPasswordModalOpen}
-        onClose={() => setIsPasswordModalOpen(false)}
-        title="Alterar Senha de Acesso"
-        size="sm"
-        footer={
-          <>
-            <button className="btn btn-outline" onClick={() => setIsPasswordModalOpen(false)}>
-              Cancelar
-            </button>
-            <button className="btn btn-primary" onClick={handleSavePassword}>
-              Salvar Senha
-            </button>
-          </>
-        }
-      >
-        <div className="space-y-3.5">
-          <div className="form-group">
-            <label className="form-label text-xs">Senha Atual</label>
-            <input
-              type="password"
-              className="form-control text-xs"
-              placeholder="Digite a senha atual"
-              value={currPassword}
-              onChange={e => setCurrPassword(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label text-xs">Nova Senha</label>
-            <input
-              type="password"
-              className="form-control text-xs"
-              placeholder="Mínimo 8 caracteres"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label className="form-label text-xs">Confirmar Nova Senha</label>
-            <input
-              type="password"
-              className="form-control text-xs"
-              placeholder="Confirme a nova senha"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-            />
-          </div>
-        </div>
-      </Modal>
+      {/* ── MODAIS COMPARTILHADOS ────────────────────────────────────────── */}
+      <GlobalSearch isOpen={isSearchOpen} onClose={() => setSearchOpen(false)} />
+      <NotificationPanel isOpen={isNotifOpen} onClose={() => setNotifOpen(false)} />
     </>
   );
-};
+}
+
+export default Header;

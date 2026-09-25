@@ -1,47 +1,93 @@
-import React, { useState, useEffect } from 'react';
+// CONDOHUB — APP LAYOUT PRINCIPAL
+
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import { create } from 'zustand';
+import storage from '../../lib/storage';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
-import { GlobalSearch } from '../shared/GlobalSearch';
-import { NotificationPanel } from '../shared/NotificationPanel';
-import { ToastContainer } from '../ui/Toast';
 
-export const AppLayout: React.FC = () => {
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+// ─── DARK MODE HOOK & STORE ───────────────────────────────────────────────────
+interface DarkModeState {
+  darkMode: boolean;
+  toggleDarkMode: () => void;
+  setDarkMode: (value: boolean) => void;
+}
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsSearchOpen(true);
+export const useDarkMode = create<DarkModeState>((set, get) => {
+  const initial = storage.get<boolean>('darkMode') || false;
+  if (typeof document !== 'undefined' && initial) {
+    document.body.classList.add('dark-mode');
+  }
+  return {
+    darkMode: initial,
+    toggleDarkMode: () => {
+      const next = !get().darkMode;
+      storage.set('darkMode', next);
+      if (next) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
       }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+      set({ darkMode: next });
+    },
+    setDarkMode: (value: boolean) => {
+      storage.set('darkMode', value);
+      if (value) {
+        document.body.classList.add('dark-mode');
+      } else {
+        document.body.classList.remove('dark-mode');
+      }
+      set({ darkMode: value });
+    },
+  };
+});
+
+// ─── COMPONENTE APP LAYOUT ────────────────────────────────────────────────────
+export function AppLayout() {
+  const [isSidebarOpen, setSidebarOpen] = useState(false);
+  const { darkMode } = useDarkMode();
+
+  // Sincroniza a classe dark-mode no body
+  useEffect(() => {
+    if (darkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [darkMode]);
 
   return (
-    <div id="app" className="min-h-screen flex bg-[var(--color-bg)]">
-      <Sidebar
-        isMobileOpen={isMobileSidebarOpen}
-        onCloseMobile={() => setIsMobileSidebarOpen(false)}
-      />
+    <div id="app" style={{ minHeight: '100vh', height: '100vh', display: 'flex', position: 'relative', overflow: 'hidden' }}>
+      {/* Sidebar de navegação */}
+      <Sidebar isOpen={isSidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div id="main-wrapper" className="flex-1 flex flex-col min-w-0 lg:ml-[240px] w-full lg:w-[calc(100%-240px)]">
-        <Header
-          onToggleMobileSidebar={() => setIsMobileSidebarOpen(prev => !prev)}
-          onOpenSearch={() => setIsSearchOpen(true)}
+      {/* Overlay mobile para fechar a sidebar */}
+      {isSidebarOpen && (
+        <div
+          className="sidebar-mobile-overlay"
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            backdropFilter: 'blur(2px)',
+            WebkitBackdropFilter: 'blur(2px)',
+            zIndex: 35,
+          }}
+          aria-hidden="true"
         />
+      )}
 
-        <main id="content-area" className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+      {/* Wrapper principal: Header fixo + Conteúdo rolável */}
+      <div id="main-wrapper" style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <Header onToggleSidebar={() => setSidebarOpen(prev => !prev)} />
+        <main id="content-area" style={{ flex: 1, overflowY: 'auto' }}>
           <Outlet />
         </main>
       </div>
-
-      <GlobalSearch isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
-      <NotificationPanel />
-      <ToastContainer />
     </div>
   );
-};
+}
+
+export default AppLayout;

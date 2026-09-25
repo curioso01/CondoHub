@@ -1,101 +1,158 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+// CONDOHUB — COMPONENTE DE PAGINAÇÃO
 
-export interface PaginationProps {
-  total?: number;
-  page?: number;
-  perPage?: number;
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
+interface PaginationProps {
+  total: number;
+  page: number;
+  perPage: number;
   onPageChange: (page: number) => void;
-  // Aliases for compatibility
-  totalItems?: number;
-  currentPage?: number;
-  pageSize?: number;
-  totalPages?: number;
+  className?: string;
 }
 
-export const Pagination: React.FC<PaginationProps> = ({
-  total,
-  page,
-  perPage,
-  onPageChange,
-  totalItems,
-  currentPage,
-  pageSize,
-  totalPages: propTotalPages
-}) => {
-  const effectiveTotal = total !== undefined ? total : totalItems ?? 0;
-  const effectivePage = page !== undefined ? page : currentPage ?? 1;
-  const effectivePerPage = perPage !== undefined ? perPage : pageSize ?? 10;
-  const calculatedTotalPages =
-    propTotalPages !== undefined
-      ? propTotalPages
-      : Math.max(1, Math.ceil(effectiveTotal / effectivePerPage));
-
-  if (calculatedTotalPages <= 1 && effectiveTotal <= effectivePerPage) {
-    return null;
+// ─── HELPER — gera array de páginas com reticências ───────────────────────────
+function buildPageRange(current: number, total: number): (number | '...')[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
   }
 
-  const startRecord = effectiveTotal > 0 ? (effectivePage - 1) * effectivePerPage + 1 : 0;
-  const endRecord = Math.min(effectivePage * effectivePerPage, effectiveTotal);
+  const pages: (number | '...')[] = [];
+  const delta = 2; // páginas ao redor da atual
+
+  const rangeStart = Math.max(2, current - delta);
+  const rangeEnd = Math.min(total - 1, current + delta);
+
+  pages.push(1);
+
+  if (rangeStart > 2) pages.push('...');
+
+  for (let i = rangeStart; i <= rangeEnd; i++) {
+    pages.push(i);
+  }
+
+  if (rangeEnd < total - 1) pages.push('...');
+
+  pages.push(total);
+
+  return pages;
+}
+
+// ─── COMPONENTE ───────────────────────────────────────────────────────────────
+export function Pagination({ total, page, perPage, onPageChange, className = '' }: PaginationProps) {
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const from = total === 0 ? 0 : (page - 1) * perPage + 1;
+  const to = Math.min(page * perPage, total);
+  const pageRange = buildPageRange(page, totalPages);
+
+  if (total === 0) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '12px 0',
+          fontSize: '13px',
+          color: 'var(--color-text-muted)',
+        }}
+        className={className}
+      >
+        Nenhum registro encontrado.
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 text-xs text-[var(--color-text-muted)] border-t border-[var(--color-border)] mt-4">
-      <div>
-        Mostrando <span className="font-semibold text-[var(--color-text)]">{startRecord}</span> a{' '}
-        <span className="font-semibold text-[var(--color-text)]">{endRecord}</span> de{' '}
-        <span className="font-semibold text-[var(--color-text)]">{effectiveTotal}</span> registros
-      </div>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: '16px',
+        gap: '12px',
+        flexWrap: 'wrap',
+      }}
+      className={className}
+    >
+      {/* Contador de registros */}
+      <span style={{ fontSize: '13px', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+        Exibindo <strong>{from}</strong> a <strong>{to}</strong> de{' '}
+        <strong>{total}</strong> registros
+      </span>
 
-      <div className="flex items-center gap-1">
-        {/* Primeira página */}
+      {/* Botões de página */}
+      <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+        {/* Primeira */}
         <button
-          className="btn btn-sm btn-outline p-1.5"
+          className="btn btn-sm btn-outline"
           onClick={() => onPageChange(1)}
-          disabled={effectivePage <= 1}
-          title="Primeira Página"
+          disabled={page <= 1}
           aria-label="Primeira página"
+          title="Primeira"
         >
-          <ChevronsLeft size={14} />
+          «
         </button>
 
-        {/* Página Anterior */}
+        {/* Anterior */}
         <button
-          className="btn btn-sm btn-outline px-2.5 py-1.5 flex items-center gap-1"
-          onClick={() => onPageChange(effectivePage - 1)}
-          disabled={effectivePage <= 1}
+          className="btn btn-sm btn-outline"
+          onClick={() => onPageChange(page - 1)}
+          disabled={page <= 1}
           aria-label="Página anterior"
         >
-          <ChevronLeft size={14} />
-          <span className="hidden sm:inline">Anterior</span>
+          Anterior
         </button>
 
-        {/* Indicador de Página */}
-        <span className="px-3 py-1 font-semibold text-[var(--color-text)] bg-[var(--color-bg)] rounded-md border border-[var(--color-border)]">
-          {effectivePage} / {calculatedTotalPages}
-        </span>
+        {/* Páginas numeradas com reticências */}
+        {pageRange.map((p, idx) =>
+          p === '...' ? (
+            <span
+              key={`ellipsis-${idx}`}
+              style={{
+                padding: '6px 4px',
+                color: 'var(--color-text-muted)',
+                fontSize: '13px',
+                userSelect: 'none',
+              }}
+            >
+              ···
+            </span>
+          ) : (
+            <button
+              key={p}
+              className={`btn btn-sm ${p === page ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => onPageChange(p)}
+              aria-label={`Página ${p}`}
+              aria-current={p === page ? 'page' : undefined}
+              style={{ minWidth: '34px' }}
+            >
+              {p}
+            </button>
+          )
+        )}
 
-        {/* Próxima Página */}
+        {/* Próxima */}
         <button
-          className="btn btn-sm btn-outline px-2.5 py-1.5 flex items-center gap-1"
-          onClick={() => onPageChange(effectivePage + 1)}
-          disabled={effectivePage >= calculatedTotalPages}
+          className="btn btn-sm btn-outline"
+          onClick={() => onPageChange(page + 1)}
+          disabled={page >= totalPages}
           aria-label="Próxima página"
         >
-          <span className="hidden sm:inline">Próxima</span>
-          <ChevronRight size={14} />
+          Próxima
         </button>
 
-        {/* Última Página */}
+        {/* Última */}
         <button
-          className="btn btn-sm btn-outline p-1.5"
-          onClick={() => onPageChange(calculatedTotalPages)}
-          disabled={effectivePage >= calculatedTotalPages}
-          title="Última Página"
+          className="btn btn-sm btn-outline"
+          onClick={() => onPageChange(totalPages)}
+          disabled={page >= totalPages}
           aria-label="Última página"
+          title="Última"
         >
-          <ChevronsRight size={14} />
+          »
         </button>
       </div>
     </div>
   );
-};
+}
+
+export default Pagination;

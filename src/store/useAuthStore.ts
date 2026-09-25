@@ -1,228 +1,233 @@
+// CONDOHUB — STORE DE AUTENTICAÇÃO (ZUSTAND + PERSIST)
+
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { User, UserRole } from '../types';
-import { audit } from '../lib/audit';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { User, UserRole, LoginResult } from '../types';
+import { log } from '../lib/audit';
+import { getDefaultRoute } from '../lib/permissions';
 
-export interface DemoUser extends User {
-  password: string;
-  passwordHash: string;
-}
-
-const createHash = (pwd: string) => btoa('salt_condo_' + pwd);
-
-export const DEMO_USERS: DemoUser[] = [
+// ─── USUÁRIOS DEMO ────────────────────────────────────────────────────────────
+// PRODUÇÃO: substituir por autenticação via HTTPS com Argon2/Bcrypt no servidor.
+const DEMO_USERS: User[] = [
   {
     id: 'u1',
     name: 'Carlos Mendonça',
     email: 'sindico@condohub.com',
-    password: 'Sindico@2024',
-    passwordHash: createHash('Sindico@2024'),
+    passwordHash: btoa('salt_condo_Sindico@2024'),
     role: 'SINDICO',
     avatar: 'CM',
-    condoId: 'c1'
+    condoId: 'c1',
   },
   {
     id: 'u2',
     name: 'Ana Paula Ramos',
     email: 'morador@condohub.com',
-    password: 'Morador@2024',
-    passwordHash: createHash('Morador@2024'),
+    passwordHash: btoa('salt_condo_Morador@2024'),
     role: 'MORADOR',
     avatar: 'AP',
     condoId: 'c1',
-    unitId: 'A101'
+    unitId: 'A101',
   },
   {
     id: 'u3',
     name: 'Roberto Silva',
     email: 'porteiro@condohub.com',
-    password: 'Porteiro@2024',
-    passwordHash: createHash('Porteiro@2024'),
+    passwordHash: btoa('salt_condo_Porteiro@2024'),
     role: 'PORTEIRO',
     avatar: 'RS',
-    condoId: 'c1'
+    condoId: 'c1',
   },
   {
     id: 'u4',
     name: 'Admin Sistema',
     email: 'admin@condohub.com',
-    password: 'Admin@2024',
-    passwordHash: createHash('Admin@2024'),
+    passwordHash: btoa('salt_condo_Admin@2024'),
     role: 'SUPER_ADMIN',
     avatar: 'AD',
-    condoId: 'c1'
+    condoId: 'c1',
   },
   {
     id: 'u5',
     name: 'Eduardo Silveira Santos',
     email: 'conselheiro@condohub.com',
-    password: 'Conselho@2024',
-    passwordHash: createHash('Conselho@2024'),
+    passwordHash: btoa('salt_condo_Conselho@2024'),
     role: 'CONSELHEIRO',
     avatar: 'ES',
     condoId: 'c1',
-    unitId: 'C101'
-  }
+    unitId: 'C101',
+  },
 ];
 
-export interface LoginResult {
-  success: boolean;
-  error?: string;
-  waitSeconds?: number;
+// ─── TIPOS DO STORE ───────────────────────────────────────────────────────────
+interface LoginAttemptEntry {
+  count: number;
+  lastAttempt: number;
 }
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
-  loginAttempts: Record<string, { count: number; lastAttempt: number }>;
-  loginError: string | null;
-  isLoading: boolean;
-  login: (email: string, pass: string) => LoginResult;
+  // loginAttempts é mantido em memória (não persistido) por segurança
+  _loginAttempts: Record<string, LoginAttemptEntry>;
+
+  // Ações
+  login: (email: string, password: string) => LoginResult;
   logout: () => void;
-  quickLogin: (role: UserRole | string) => LoginResult;
-  resetAttempts: (email?: string) => void;
+  quickLogin: (role: UserRole) => LoginResult;
+  clearAttempts: (email: string) => void;
+  getRateLimit: (email: string) => { blocked: boolean; waitSeconds: number };
 }
 
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function generateToken(user: User): string {
+  // JWT simulado — PRODUÇÃO: usar JWT real assinado com segredo no servidor
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const payload = btoa(
+    JSON.stringify({
+      uid: user.id,
+      email: user.email,
+      role: user.role,
+      exp: Date.now() + 8 * 60 * 60 * 1000, // 8 horas
+    })
+  );
+  const signature = btoa('mock_signature_' + user.id);
+  return `${header}.${payload}.${signature}`;
+}
+
+// ─── STORE ────────────────────────────────────────────────────────────────────
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
       isAuthenticated: false,
-      loginAttempts: {},
-      loginError: null,
-      isLoading: false,
+      _loginAttempts: {},
 
-      login: (email: string, pass: string): LoginResult => {
-        const cleanEmail = (email || '').trim().toLowerCase();
-        const cleanPass = (pass || '').trim();
+      // ── getRateLimit ────────────────────────────────────────────────────────
+      getRateLimit(email: string) {
+        const key = email.toLowerCase().trim();
+        const entry = get()._loginAttempts[key];
+        if (!entry) return { blocked: false, waitSeconds: 0 };
+
         const now = Date.now();
-
-        // 1. Rate limiting check (5 tentativas -> 30s bloqueio)
-        const attempts = get().loginAttempts[cleanEmail] || { count: 0, lastAttempt: 0 };
-        if (attempts.count >= 5) {
-          const elapsedSec = (now - attempts.lastAttempt) / 1000;
-          if (elapsedSec < 30) {
-            const waitSeconds = Math.ceil(30 - elapsedSec);
-            const errorMsg = `Muitas tentativas de login. Aguarde ${waitSeconds}s antes de tentar novamente.`;
-            set({ loginError: errorMsg });
-            return { success: false, error: errorMsg, waitSeconds };
-          } else {
-            // Tempo expirado: reseta tentativas
-            attempts.count = 0;
+        if (entry.count >= 5) {
+          const elapsed = Math.floor((now - entry.lastAttempt) / 1000);
+          if (elapsed < 30) {
+            return { blocked: true, waitSeconds: 30 - elapsed };
           }
+          // Expirou o bloqueio — limpa automaticamente
+          set(state => {
+            const attempts = { ...state._loginAttempts };
+            delete attempts[key];
+            return { _loginAttempts: attempts };
+          });
+        }
+        return { blocked: false, waitSeconds: 0 };
+      },
+
+      // ── login ────────────────────────────────────────────────────────────────
+      login(email: string, password: string): LoginResult {
+        const normalizedEmail = email.toLowerCase().trim();
+        const rate = get().getRateLimit(normalizedEmail);
+
+        if (rate.blocked) {
+          return {
+            success: false,
+            error: `Muitas tentativas sem sucesso. Por segurança, aguarde ${rate.waitSeconds}s para tentar novamente.`,
+            waitSeconds: rate.waitSeconds,
+          };
         }
 
-        const inputHash = createHash(cleanPass);
-        const matched = DEMO_USERS.find(
-          u => u.email.toLowerCase() === cleanEmail && u.passwordHash === inputHash
+        const hashed = btoa('salt_condo_' + password);
+        const found = DEMO_USERS.find(
+          u => u.email.toLowerCase() === normalizedEmail && u.passwordHash === hashed
         );
 
-        if (matched) {
-          const user: User = {
-            id: matched.id,
-            name: matched.name,
-            email: matched.email,
-            role: matched.role,
-            avatar: matched.avatar,
-            condoId: matched.condoId,
-            unitId: matched.unitId
-          };
-
-          // Reseta tentativas para este e-mail
-          const updatedAttempts = { ...get().loginAttempts };
-          delete updatedAttempts[cleanEmail];
-
-          audit.log(user.id, user.name, 'Login efetuado com sucesso', 'Autenticação');
-
-          set({
-            user,
-            isAuthenticated: true,
-            loginError: null,
-            loginAttempts: updatedAttempts
+        if (!found) {
+          // Registrar tentativa falha
+          set(state => {
+            const attempts = { ...state._loginAttempts };
+            const existing = attempts[normalizedEmail];
+            attempts[normalizedEmail] = {
+              count: existing ? existing.count + 1 : 1,
+              lastAttempt: Date.now(),
+            };
+            return { _loginAttempts: attempts };
           });
 
-          return { success: true };
-        } else {
-          // Incrementa contagem de tentativas inválidas
-          const newCount = attempts.count + 1;
-          const updatedAttempts = {
-            ...get().loginAttempts,
-            [cleanEmail]: { count: newCount, lastAttempt: now }
-          };
-
-          let errorMsg = 'E-mail ou senha incorretos.';
-          let waitSeconds: number | undefined;
-
-          if (newCount >= 5) {
-            waitSeconds = 30;
-            errorMsg = `Tentativas excedidas (5). Bloqueio temporário por 30 segundos.`;
-          }
-
-          set({
-            loginError: errorMsg,
-            loginAttempts: updatedAttempts
+          log('anon', 'Sistema/Anônimo', 'Falha de Login', 'Autenticação', {
+            email: normalizedEmail,
           });
 
-          return { success: false, error: errorMsg, waitSeconds };
+          return {
+            success: false,
+            error: 'Credenciais inválidas. Verifique seu e-mail e senha.',
+          };
         }
+
+        // Limpar tentativas ao logar com sucesso
+        set(state => {
+          const attempts = { ...state._loginAttempts };
+          delete attempts[normalizedEmail];
+          return {
+            _loginAttempts: attempts,
+            user: found,
+            isAuthenticated: true,
+          };
+        });
+
+        log(found.id, found.name, 'Login Bem-Sucedido', 'Autenticação', {
+          email: found.email,
+          role: found.role,
+        });
+
+        const token = generateToken(found);
+        return { success: true, user: found, token };
       },
 
-      logout: () => {
-        const current = get().user;
-        if (current) {
-          audit.log(current.id, current.name, 'Logout efetuado', 'Autenticação');
+      // ── logout ───────────────────────────────────────────────────────────────
+      logout() {
+        const { user } = get();
+        if (user) {
+          log(user.id, user.name, 'Logout Realizado', 'Autenticação', {
+            userId: user.id,
+          });
         }
-        set({
-          user: null,
-          isAuthenticated: false,
-          loginError: null
+        set({ user: null, isAuthenticated: false });
+      },
+
+      // ── quickLogin ───────────────────────────────────────────────────────────
+      quickLogin(role: UserRole): LoginResult {
+        const credMap: Record<UserRole, { email: string; password: string }> = {
+          SINDICO:     { email: 'sindico@condohub.com',     password: 'Sindico@2024' },
+          MORADOR:     { email: 'morador@condohub.com',     password: 'Morador@2024' },
+          PORTEIRO:    { email: 'porteiro@condohub.com',    password: 'Porteiro@2024' },
+          SUPER_ADMIN: { email: 'admin@condohub.com',       password: 'Admin@2024' },
+          CONSELHEIRO: { email: 'conselheiro@condohub.com', password: 'Conselho@2024' },
+        };
+        const cred = credMap[role];
+        return get().login(cred.email, cred.password);
+      },
+
+      // ── clearAttempts ─────────────────────────────────────────────────────────
+      clearAttempts(email: string) {
+        set(state => {
+          const attempts = { ...state._loginAttempts };
+          delete attempts[email.toLowerCase().trim()];
+          return { _loginAttempts: attempts };
         });
       },
-
-      quickLogin: (role: UserRole | string): LoginResult => {
-        const roleKey = role.toString().toUpperCase();
-        const matched = DEMO_USERS.find(u => u.role === roleKey);
-        if (matched) {
-          const user: User = {
-            id: matched.id,
-            name: matched.name,
-            email: matched.email,
-            role: matched.role,
-            avatar: matched.avatar,
-            condoId: matched.condoId,
-            unitId: matched.unitId
-          };
-
-          audit.log(user.id, user.name, `Login rápido via Demo (${user.role})`, 'Autenticação');
-
-          set({
-            user,
-            isAuthenticated: true,
-            loginError: null
-          });
-
-          return { success: true };
-        }
-        return { success: false, error: 'Perfil demo não encontrado.' };
-      },
-
-      resetAttempts: (email?: string) => {
-        if (email) {
-          const updated = { ...get().loginAttempts };
-          delete updated[email.toLowerCase().trim()];
-          set({ loginAttempts: updated });
-        } else {
-          set({ loginAttempts: {} });
-        }
-      }
     }),
     {
       name: 'condohub_auth',
-      partialize: state => ({
+      storage: createJSONStorage(() => localStorage),
+      // Persistir apenas o usuário e autenticação, não as tentativas de login
+      partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
-        loginAttempts: state.loginAttempts
-      })
+      }),
     }
   )
 );
+
+// ─── EXPORTS AUXILIARES ───────────────────────────────────────────────────────
+export { DEMO_USERS, getDefaultRoute };

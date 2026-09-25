@@ -1,6 +1,11 @@
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+// CONDOHUB — COMPONENTE MODAL REUTILIZÁVEL
+
+import { useEffect, useId } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
+
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
+export type ModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -8,97 +13,184 @@ export interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: ModalSize;
 }
 
-export const Modal: React.FC<ModalProps> = ({
+// ─── LARGURAS POR TAMANHO ─────────────────────────────────────────────────────
+const SIZE_MAP: Record<ModalSize, string> = {
+  sm: '480px',
+  md: '600px',
+  lg: '800px',
+  xl: '1000px',
+};
+
+// ─── COMPONENTE ───────────────────────────────────────────────────────────────
+export function Modal({
   isOpen,
   onClose,
   title,
   children,
   footer,
-  size = 'md'
-}) => {
+  size = 'md',
+}: ModalProps) {
+  const titleId = useId();
+
+  // Fechar por ESC
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
-    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  const sizeClasses: Record<string, string> = {
-    sm: 'max-w-md',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
-  };
+  // Bloquear scroll do body quando aberto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  const maxWidth = SIZE_MAP[size];
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
+        // ── OVERLAY ───────────────────────────────────────────────────────────
+        <motion.div
+          key="modal-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) onClose();
+          }}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            background: 'rgba(0, 0, 0, 0.45)',
+            backdropFilter: 'blur(4px)',
+            WebkitBackdropFilter: 'blur(4px)',
+          }}
+          aria-hidden="true"
         >
-          {/* Overlay com blur */}
+          {/* ── DIALOG ──────────────────────────────────────────────────────── */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
-            onClick={onClose}
-          />
-
-          {/* Conteúdo do Modal */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            key="modal-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            initial={{ opacity: 0, scale: 0.95, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ duration: 0.2, ease: 'easeOut' }}
-            className={`relative w-full ${sizeClasses[size] || 'max-w-lg'} rounded-xl bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)] shadow-2xl overflow-hidden flex flex-col`}
-            style={{ maxHeight: '90vh' }}
-            onClick={e => e.stopPropagation()}
+            exit={{ opacity: 0, scale: 0.95, y: 8, transition: { duration: 0.15 } }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth,
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              background: 'var(--color-surface)',
+              borderRadius: '14px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.08)',
+              overflow: 'hidden',
+            }}
           >
-            {/* Cabeçalho */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">
-              <h3 id="modal-title" className="text-base font-bold text-[var(--color-text)]">
+            {/* ── HEADER ────────────────────────────────────────────────────── */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '20px 24px 16px',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
+                flexShrink: 0,
+              }}
+            >
+              <h3
+                id={titleId}
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  color: 'var(--color-text)',
+                  margin: 0,
+                }}
+              >
                 {title}
               </h3>
               <button
-                type="button"
-                className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] p-1.5 rounded-lg hover:bg-[var(--color-bg)] transition-colors"
                 onClick={onClose}
-                aria-label="Fechar janela"
+                aria-label="Fechar modal"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--color-text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4px',
+                  borderRadius: '6px',
+                  transition: 'background 150ms, color 150ms',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--color-bg)';
+                  (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text)';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'none';
+                  (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-muted)';
+                }}
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Corpo */}
-            <div className="p-5 overflow-y-auto flex-1 text-sm leading-relaxed">
+            {/* ── BODY ──────────────────────────────────────────────────────── */}
+            <div
+              style={{
+                padding: '20px 24px',
+                overflowY: 'auto',
+                flex: 1,
+              }}
+            >
               {children}
             </div>
 
-            {/* Rodapé opcional */}
+            {/* ── FOOTER (opcional) ──────────────────────────────────────────── */}
             {footer && (
-              <div className="flex items-center justify-end gap-2 px-5 py-3.5 border-t border-[var(--color-border)] bg-[var(--color-bg)]/50">
+              <div
+                style={{
+                  padding: '16px 24px',
+                  borderTop: '1px solid rgba(0,0,0,0.06)',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  gap: '10px',
+                  flexShrink: 0,
+                  background: 'var(--color-bg)',
+                }}
+              >
                 {footer}
               </div>
             )}
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );
-};
+}
+
+export default Modal;

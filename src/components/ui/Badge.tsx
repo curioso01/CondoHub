@@ -1,66 +1,128 @@
-import React from 'react';
+// CONDOHUB — COMPONENTE BADGE DE STATUS
 
-const STATUS_MAP: Record<string, string> = {
-  // Financeiro
-  Pago: 'success',
-  Pendente: 'warning',
-  Vencido: 'danger',
-  Atrasado: 'danger',
-  // Ocorrências
-  Aberta: 'info',
-  Resolvida: 'success',
-  'Em análise': 'warning',
-  Arquivada: 'muted',
-  // Reservas
-  Aprovada: 'success',
-  Cancelada: 'muted',
-  Confirmada: 'success',
-  Rejeitada: 'danger',
-  // Comunicados / Geral
-  Urgente: 'danger',
-  Importante: 'warning',
-  Normal: 'neutral',
-  // Manutenção
-  'Em Execução': 'primary',
-  'Em andamento': 'primary',
-  Concluída: 'success',
-  'Aguardando Peça': 'warning',
-  // Portaria / Encomendas
-  'Aguardando Retirada': 'warning',
-  Retirado: 'success',
-  Presente: 'success',
-  Saiu: 'muted'
+// ─── MAPA COMPLETO STATUS → CLASSE CSS ────────────────────────────────────────
+const STATUS_CLASS_MAP: Record<string, string> = {
+  // ── Financeiro — Recebíveis ────────────────────────────────────────────────
+  'Pago':                    'badge-success',
+  'Pendente':                'badge-warning',
+  'Vencido':                 'badge-danger',
+  'Em acordo':               'badge-warning',
+
+  // ── Financeiro — Pagamentos ────────────────────────────────────────────────
+  'Pago ':                   'badge-success',   // alias com espaço (defensivo)
+  'Em aprovação':            'badge-warning',
+  'Cancelado':               'badge-muted',
+
+  // ── Reservas ──────────────────────────────────────────────────────────────
+  'Confirmada':              'badge-success',
+  'Aguardando aprovação':    'badge-warning',
+  'Cancelada':               'badge-muted',
+  'Concluída':               'badge-success',
+
+  // ── Ocorrências — Status ───────────────────────────────────────────────────
+  'Aberta':                  'badge-info',
+  'Em análise':              'badge-warning',
+  'Em providência':          'badge-warning',
+  'Resolvida':               'badge-success',
+  'Arquivada':               'badge-muted',
+
+  // ── Ocorrências — Prioridade ───────────────────────────────────────────────
+  'Urgente':                 'badge-danger',
+  'Alta':                    'badge-danger',
+  'Media':                   'badge-warning',
+  'Média':                   'badge-warning',
+  'Baixa':                   'badge-info',
+
+  // ── Manutenção — OS Kanban ─────────────────────────────────────────────────
+  'aberta':                  'badge-info',
+  'em_analise':              'badge-warning',
+  'aprovada':                'badge-primary',
+  'em_execucao':             'badge-primary',
+  'concluida':               'badge-success',
+  'cancelada':               'badge-muted',
+  'Em Execução':             'badge-primary',
+  'Em Análise':              'badge-warning',
+  'Aprovada':                'badge-success',
+
+  // ── Manutenção — Preventiva ────────────────────────────────────────────────
+  'Em dia':                  'badge-success',
+  'Proximo':                 'badge-warning',
+  'Vencendo em 30 dias':     'badge-warning',
+
+  // ── Multas/Advertências ────────────────────────────────────────────────────
+  '1ª Advertência':          'badge-warning',
+  '2ª Advertência':          'badge-danger',
+  'Multa':                   'badge-danger',
+  'Recurso':                 'badge-warning',
+  'Notificado':              'badge-info',
+  'Recorrido':               'badge-warning',
+  'Confirmado':              'badge-success',
+
+  // ── Assembleias ───────────────────────────────────────────────────────────
+  'Futura':                  'badge-info',
+  'Realizada':               'badge-success',
+
+  // ── Votações ──────────────────────────────────────────────────────────────
+  'Encerrada':               'badge-muted',
+
+  // ── Portaria — Visitantes ──────────────────────────────────────────────────
+  'Dentro':                  'badge-info',
+  'Saiu':                    'badge-muted',
+
+  // ── Portaria — Encomendas ──────────────────────────────────────────────────
+  'Aguardando Retirada':     'badge-warning',
+  'Retirado':                'badge-success',
+
+  // ── Unidades ──────────────────────────────────────────────────────────────
+  'Ocupada':                 'badge-success',
+  'Vaga':                    'badge-muted',
+  'Em Reforma':              'badge-warning',
+
+  // ── Fornecedores / Moradores ───────────────────────────────────────────────
+  'ativo':                   'badge-success',
+  'Ativo':                   'badge-success',
+  'inativo':                 'badge-muted',
+  'Inativo':                 'badge-muted',
+  'inadimplente':            'badge-danger',
+  'Inadimplente':            'badge-danger',
+
+  // ── Documentos / Integrações ───────────────────────────────────────────────
+  'Válido':                  'badge-success',
+  'Conectado (Demo)':        'badge-success',
+  'Desconectado':            'badge-muted',
+
+  // ── Outros ────────────────────────────────────────────────────────────────
+  'Ativo ':                  'badge-success',  // defensivo
 };
 
-export interface BadgeProps {
-  status?: string;
-  variant?: 'success' | 'danger' | 'warning' | 'info' | 'neutral' | 'primary' | 'muted';
-  children?: React.ReactNode;
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
+interface BadgeProps {
+  status: string;
   className?: string;
-  style?: React.CSSProperties;
+  /** Se true, adiciona animação pulsante (para status Urgente) */
+  pulse?: boolean;
 }
 
-export const Badge: React.FC<BadgeProps> = ({
-  status,
-  variant,
-  children,
-  className = '',
-  style
-}) => {
-  // Se passou status, mapeia automaticamente
-  let resolvedVariant = variant;
-  if (status && !resolvedVariant) {
-    resolvedVariant = (STATUS_MAP[status] as any) || 'neutral';
-  } else if (!resolvedVariant && typeof children === 'string') {
-    resolvedVariant = (STATUS_MAP[children] as any) || 'neutral';
-  }
-
-  const variantClass = `badge-${resolvedVariant || 'neutral'}`;
-  const content = children !== undefined ? children : status;
+// ─── COMPONENTE ───────────────────────────────────────────────────────────────
+export function Badge({ status, className = '', pulse }: BadgeProps) {
+  const statusClass = STATUS_CLASS_MAP[status] ?? 'badge-info';
+  const isUrgent = status === 'Urgente' || pulse;
 
   return (
-    <span className={`badge ${variantClass} ${className}`} style={style}>
-      {content}
+    <span
+      className={`badge ${statusClass}${isUrgent ? ' badge-urgent-pulse' : ''} ${className}`.trim()}
+    >
+      {status}
     </span>
   );
-};
+}
+
+/**
+ * Retorna apenas a classe CSS correspondente ao status.
+ * Útil para aplicar em outros elementos sem usar o componente Badge.
+ */
+export function getBadgeClass(status: string): string {
+  return STATUS_CLASS_MAP[status] ?? 'badge-info';
+}
+
+export default Badge;

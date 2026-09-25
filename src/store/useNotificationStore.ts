@@ -1,106 +1,135 @@
-import { create } from 'zustand';
-import { Notification } from '../types';
+// CONDOHUB — STORE DE NOTIFICAÇÕES IN-APP (ZUSTAND — SEM PERSIST)
 
+import { create } from 'zustand';
+import type { Notification, NotificationType } from '../types';
+import { generateId } from '../lib/security';
+
+// ─── TIPOS ────────────────────────────────────────────────────────────────────
 interface NotificationState {
   notifications: Notification[];
-  unreadCount: number;
-  isOpen: boolean;
-  setIsOpen: (open: boolean) => void;
-  addNotification: (n: Omit<Notification, 'id' | 'createdAt'>) => void;
+  // unreadCount é derivado do estado (computed)
+  get unreadCount(): number;
+
+  // Ações
+  addNotification: (payload: Omit<Notification, 'id' | 'read' | 'createdAt'>) => void;
+  addMany: (payloads: Omit<Notification, 'id' | 'read' | 'createdAt'>[]) => void;
   markRead: (id: string) => void;
   markAllRead: () => void;
   clearAll: () => void;
-  // Aliases for compatibility
-  markAsRead: (id: string) => void;
-  markAllAsRead: () => void;
+  clearRead: () => void;
 }
 
-const DEFAULT_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'notif_1',
-    type: 'financial',
-    title: 'Taxa Condominial de Setembro Emitida',
-    message: 'Boletos da cota condominial ordinária disponíveis com desconto para pagamento até o dia 10.',
-    read: false,
-    module: 'financeiro',
-    createdAt: '2026-09-20 14:00'
+// ─── STORE ────────────────────────────────────────────────────────────────────
+export const useNotificationStore = create<NotificationState>()((set, get) => ({
+  notifications: [],
+
+  // ── computed ─────────────────────────────────────────────────────────────────
+  get unreadCount() {
+    return get().notifications.filter(n => !n.read).length;
   },
-  {
-    id: 'notif_2',
-    type: 'announcement',
-    title: 'Manutenção Preventiva de Bombas',
-    message: 'Limpeza periódica do reservatório e inspeção do barrilete programadas para quinta-feira.',
-    read: false,
-    module: 'comunicados',
-    createdAt: '2026-09-19 10:30'
-  },
-  {
-    id: 'notif_3',
-    type: 'reservation',
-    title: 'Reserva Confirmada: Espaço Gourmet',
-    message: 'Sua solicitação de reserva do Espaço Gourmet foi deferida com sucesso.',
-    read: true,
-    module: 'reservas',
-    createdAt: '2026-09-18 16:15'
-  }
-];
 
-export const useNotificationStore = create<NotificationState>((set, get) => ({
-  notifications: DEFAULT_NOTIFICATIONS,
-  unreadCount: DEFAULT_NOTIFICATIONS.filter(n => !n.read).length,
-  isOpen: false,
-
-  setIsOpen: (open: boolean) => set({ isOpen: open }),
-
-  addNotification: (n: Omit<Notification, 'id' | 'createdAt'>) => {
-    const id = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    const now = new Date();
-    const createdAt = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-      now.getDate()
-    ).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(
-      now.getMinutes()
-    ).padStart(2, '0')}`;
-
-    const newNotification: Notification = {
-      ...n,
-      id,
-      createdAt,
-      read: n.read ?? false
+  // ── addNotification ───────────────────────────────────────────────────────────
+  addNotification(payload) {
+    const notification: Notification = {
+      id: generateId('notif'),
+      read: false,
+      createdAt: new Date().toISOString(),
+      ...payload,
     };
-
-    const updated = [newNotification, ...get().notifications];
-    set({
-      notifications: updated,
-      unreadCount: updated.filter(item => !item.read).length
-    });
+    set(state => ({
+      notifications: [notification, ...state.notifications],
+    }));
   },
 
-  markRead: (id: string) => {
-    const updated = get().notifications.map(item =>
-      item.id === id ? { ...item, read: true } : item
-    );
-    set({
-      notifications: updated,
-      unreadCount: updated.filter(item => !item.read).length
-    });
+  // ── addMany ───────────────────────────────────────────────────────────────────
+  addMany(payloads) {
+    const newNotifications: Notification[] = payloads.map(payload => ({
+      id: generateId('notif'),
+      read: false,
+      createdAt: new Date().toISOString(),
+      ...payload,
+    }));
+    set(state => ({
+      notifications: [...newNotifications, ...state.notifications],
+    }));
   },
 
-  markAllRead: () => {
-    const updated = get().notifications.map(item => ({ ...item, read: true }));
-    set({
-      notifications: updated,
-      unreadCount: 0
-    });
+  // ── markRead ──────────────────────────────────────────────────────────────────
+  markRead(id: string) {
+    set(state => ({
+      notifications: state.notifications.map(n =>
+        n.id === id ? { ...n, read: true } : n
+      ),
+    }));
   },
 
-  clearAll: () => {
-    set({
-      notifications: [],
-      unreadCount: 0
-    });
+  // ── markAllRead ───────────────────────────────────────────────────────────────
+  markAllRead() {
+    set(state => ({
+      notifications: state.notifications.map(n => ({ ...n, read: true })),
+    }));
   },
 
-  // Aliases for compatibility
-  markAsRead: (id: string) => get().markRead(id),
-  markAllAsRead: () => get().markAllRead()
+  // ── clearAll ──────────────────────────────────────────────────────────────────
+  clearAll() {
+    set({ notifications: [] });
+  },
+
+  // ── clearRead ─────────────────────────────────────────────────────────────────
+  clearRead() {
+    set(state => ({
+      notifications: state.notifications.filter(n => !n.read),
+    }));
+  },
 }));
+
+// ─── HELPERS DE CRIAÇÃO ────────────────────────────────────────────────────────
+/**
+ * Cria payloads de notificação padronizados por tipo.
+ */
+export const NotificationFactory = {
+  overdueReceivable(unit: string, amount: number): Omit<Notification, 'id' | 'read' | 'createdAt'> {
+    return {
+      type: 'financial' as NotificationType,
+      title: 'Cobrança Vencida',
+      message: `Unidade ${unit} possui boleto vencido de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount)}.`,
+      module: '/financeiro',
+    };
+  },
+
+  openOccurrence(title: string, priority: string): Omit<Notification, 'id' | 'read' | 'createdAt'> {
+    return {
+      type: 'occurrence' as NotificationType,
+      title: `Ocorrência ${priority === 'Urgente' ? '🚨 Urgente' : 'Aberta'}`,
+      message: title,
+      module: '/ocorrencias',
+    };
+  },
+
+  pendingReservation(areaName: string, unit: string): Omit<Notification, 'id' | 'read' | 'createdAt'> {
+    return {
+      type: 'reservation' as NotificationType,
+      title: 'Reserva Aguardando Aprovação',
+      message: `${unit} solicitou reserva de ${areaName}.`,
+      module: '/reservas',
+    };
+  },
+
+  systemAlert(title: string, message: string): Omit<Notification, 'id' | 'read' | 'createdAt'> {
+    return {
+      type: 'system' as NotificationType,
+      title,
+      message,
+      module: '/dashboard',
+    };
+  },
+
+  newAnnouncement(title: string): Omit<Notification, 'id' | 'read' | 'createdAt'> {
+    return {
+      type: 'communication' as NotificationType,
+      title: 'Novo Comunicado',
+      message: title,
+      module: '/comunicados',
+    };
+  },
+};
