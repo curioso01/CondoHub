@@ -179,7 +179,7 @@ export const Maintenance: React.FC = () => {
                 className={`bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/70 rounded-[20px] border-t-4 ${col.color} p-4 flex flex-col shadow-xs transition-colors hover:bg-slate-100/50 dark:hover:bg-slate-800/50`}
                 style={{ minHeight: '480px' }}
               >
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/50 dark:border-slate-800/60 px-0.5">
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/50 dark:border-slate-800/60 px-3">
                   <span className="text-sm font-bold text-[var(--color-text)] tracking-tight">
                     {col.title}
                   </span>
@@ -188,7 +188,7 @@ export const Maintenance: React.FC = () => {
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-3 overflow-y-auto pb-2">
+                <div className="flex-1 space-y-3 overflow-y-auto pb-2 px-1">
                   {colOrders.map(order => (
                     <div
                       key={order.id}
@@ -198,7 +198,8 @@ export const Maintenance: React.FC = () => {
                         setSelectedOrder(order);
                         setIsOrderDetailsModalOpen(true);
                       }}
-                      className="p-5 rounded-2xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 shadow-sm hover:shadow-md border border-slate-200/60 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-200 cursor-grab active:cursor-grabbing text-xs group"
+                      className="rounded-2xl bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 shadow-sm hover:shadow-md border border-slate-200/60 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-200 cursor-grab active:cursor-grabbing text-xs group"
+                      style={{ padding: '18px 20px' }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-bold text-[var(--color-primary)] text-xs group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
