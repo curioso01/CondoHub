@@ -168,76 +168,76 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* 4 KPIS DINÂMICOS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         {/* KPI 1: Caixa Atual */}
-        <div className="stat-card">
+        <div className="card !mb-0 p-5 rounded-2xl flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               Caixa Atual
             </span>
-            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600">
+            <div className="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 shadow-xs">
               <DollarSign size={18} />
             </div>
           </div>
-          <div className="text-2xl font-black text-[var(--color-text)] mt-2">
+          <div className="text-2xl sm:text-3xl font-black text-[var(--color-text)] mt-3 tracking-tight">
             {security.maskMoney(currentCash)}
           </div>
-          <div className="text-xs text-[var(--color-text-muted)] mt-1.5 flex items-center gap-1">
-            <CheckCircle2 size={13} className="text-emerald-500" />
+          <div className="text-xs text-[var(--color-text-muted)] mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center gap-1.5">
+            <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
             <span>Fundo de reserva preservado</span>
           </div>
         </div>
 
         {/* KPI 2: Inadimplência */}
-        <div className="stat-card">
+        <div className="card !mb-0 p-5 rounded-2xl flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               Inadimplência Mês
             </span>
-            <div className="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600">
+            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 shadow-xs">
               <AlertTriangle size={18} />
             </div>
           </div>
-          <div className="text-2xl font-black text-rose-600 mt-2">
+          <div className="text-2xl sm:text-3xl font-black text-rose-600 mt-3 tracking-tight">
             {defaultRate}%
           </div>
-          <div className="text-xs text-[var(--color-text-muted)] mt-1.5">
+          <div className="text-xs text-[var(--color-text-muted)] mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
             {security.maskMoney(pendingMonth)} a liquidar
           </div>
         </div>
 
         {/* KPI 3: Ocorrências Abertas */}
-        <div className="stat-card">
+        <div className="card !mb-0 p-5 rounded-2xl flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               Ocorrências Ativas
             </span>
-            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600">
+            <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 shadow-xs">
               <Clock size={18} />
             </div>
           </div>
-          <div className="text-2xl font-black text-[var(--color-text)] mt-2">
+          <div className="text-2xl sm:text-3xl font-black text-[var(--color-text)] mt-3 tracking-tight">
             {openOccurrencesCount}
           </div>
-          <div className="text-xs text-[var(--color-text-muted)] mt-1.5">
+          <div className="text-xs text-[var(--color-text-muted)] mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
             SLA de resposta: até 48h
           </div>
         </div>
 
         {/* KPI 4: Próximo Vencimento */}
-        <div className="stat-card">
+        <div className="card !mb-0 p-5 rounded-2xl flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
               Próximo Vencimento
             </span>
-            <div className="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600">
+            <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 shadow-xs">
               <Calendar size={18} />
             </div>
           </div>
-          <div className="text-2xl font-black text-[var(--color-text)] mt-2">
+          <div className="text-2xl sm:text-3xl font-black text-[var(--color-text)] mt-3 tracking-tight">
             {nextDueDate}
           </div>
-          <div className="text-xs text-[var(--color-text-muted)] mt-1.5">
+          <div className="text-xs text-[var(--color-text-muted)] mt-2 pt-2.5 border-t border-slate-100 dark:border-slate-800/60">
             Taxa condominial ordinária
           </div>
         </div>
@@ -246,104 +246,123 @@ export const Dashboard: React.FC = () => {
       {/* PAINEL DE GRÁFICOS INFOGRÁFICOS MODERNOS INSPIRADOS NO DESIGN CYBER/NEON COM SUPORTE A TEMA CLARO E ESCURO */}
       <ModernInfographicCharts onNavigateFinancial={() => navigate('/financial')} />
 
-      {/* 3 CARDS OPERACIONAIS + FEED DE ATIVIDADES */}
+      {/* 3 CARDS OPERACIONAIS COM ALINHAMENTO E ALTURA EQUILIBRADA */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Card Operacional 1: Inadimplentes do Mês com Cobrança WhatsApp */}
-        <div className="card">
-          <div className="card-header flex items-center justify-between">
-            <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
-              Inadimplentes em Destaque
-            </h3>
-            <button
-              onClick={() => navigate('/financial')}
-              className="text-xs text-[var(--color-primary)] hover:underline"
-            >
-              Ver todos
-            </button>
-          </div>
-          <div className="card-body p-0 divide-y divide-[var(--color-border)]">
-            {receivables
-              .filter(r => r.status === 'Vencido')
-              .slice(0, 4)
-              .map(r => (
-                <div key={r.id} className="p-3 flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-xs font-bold text-[var(--color-text)] truncate">
-                      Unidade {r.unit} • {r.resident}
-                    </div>
-                    <div className="text-[11px] text-[var(--color-text-muted)]">
-                      Vencido em {r.due} • <b className="text-rose-600">{security.maskMoney(r.amount)}</b>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleOpenWhatsApp(r)}
-                    className="btn btn-sm btn-outline text-xs flex items-center gap-1 shrink-0 text-emerald-600 border-emerald-500/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-                    title="Cobrar via WhatsApp"
+        <div className="card !mb-0 rounded-2xl p-6 flex flex-col justify-between border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
+          <div>
+            <div className="card-header flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800/60">
+              <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
+                Inadimplentes em Destaque
+              </h3>
+              <button
+                onClick={() => navigate('/financial')}
+                className="text-xs font-semibold text-[var(--color-primary)] hover:underline"
+              >
+                Ver todos
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              {receivables
+                .filter(r => r.status === 'Vencido')
+                .slice(0, 4)
+                .map(r => (
+                  <div
+                    key={r.id}
+                    className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/50 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors"
                   >
-                    <Send size={12} /> WhatsApp
-                  </button>
-                </div>
-              ))}
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[var(--color-text)] truncate">
+                        Unidade {r.unit} • {r.resident}
+                      </div>
+                      <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                        Vencido em {r.due} • <b className="text-rose-600">{security.maskMoney(r.amount)}</b>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleOpenWhatsApp(r)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shrink-0 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 transition-colors"
+                      title="Cobrar via WhatsApp"
+                    >
+                      <Send size={12} /> WhatsApp
+                    </button>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 
         {/* Card Operacional 2: Próximas Manutenções */}
-        <div className="card">
-          <div className="card-header flex items-center justify-between">
-            <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
-              Próximas Manutenções
-            </h3>
-            <button
-              onClick={() => navigate('/maintenance')}
-              className="text-xs text-[var(--color-primary)] hover:underline"
-            >
-              Cronograma
-            </button>
-          </div>
-          <div className="card-body p-0 divide-y divide-[var(--color-border)]">
-            {prevMaintenance
-              .slice()
-              .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
-              .slice(0, 3)
-              .map(pm => (
-                <div key={pm.id} className="p-3">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-[var(--color-text)] truncate">{pm.equipment}</span>
-                    <Badge variant={pm.status === 'Vencido' ? 'danger' : pm.status === 'Proximo' ? 'warning' : 'success'}>
-                      {pm.status}
-                    </Badge>
+        <div className="card !mb-0 rounded-2xl p-6 flex flex-col justify-between border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
+          <div>
+            <div className="card-header flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800/60">
+              <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
+                Próximas Manutenções
+              </h3>
+              <button
+                onClick={() => navigate('/maintenance')}
+                className="text-xs font-semibold text-[var(--color-primary)] hover:underline"
+              >
+                Cronograma
+              </button>
+            </div>
+            <div className="space-y-2.5">
+              {prevMaintenance
+                .slice()
+                .sort((a, b) => a.nextDate.localeCompare(b.nextDate))
+                .slice(0, 3)
+                .map(pm => (
+                  <div
+                    key={pm.id}
+                    className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors"
+                  >
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="font-bold text-[var(--color-text)] truncate">{pm.equipment}</span>
+                      <Badge variant={pm.status === 'Vencido' ? 'danger' : pm.status === 'Proximo' ? 'warning' : 'success'}>
+                        {pm.status}
+                      </Badge>
+                    </div>
+                    <div className="text-[11px] text-[var(--color-text-muted)] flex items-center justify-between">
+                      <span className="truncate">{pm.supplier}</span>
+                      <span className="font-semibold text-[var(--color-text)]">Data: {pm.nextDate}</span>
+                    </div>
                   </div>
-                  <div className="text-[11px] text-[var(--color-text-muted)] mt-1 flex items-center justify-between">
-                    <span>{pm.supplier}</span>
-                    <span className="font-semibold text-[var(--color-text)]">Data: {pm.nextDate}</span>
-                  </div>
-                </div>
-              ))}
+                ))}
+            </div>
           </div>
         </div>
 
         {/* Card Operacional 3: Reservas de Hoje */}
-        <div className="card">
-          <div className="card-header flex items-center justify-between">
-            <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
-              Reservas de Hoje
-            </h3>
-            <button
-              onClick={() => navigate('/reservations')}
-              className="text-xs text-[var(--color-primary)] hover:underline"
-            >
-              Agenda
-            </button>
-          </div>
-          <div className="card-body p-3">
+        <div className="card !mb-0 rounded-2xl p-6 flex flex-col justify-between border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
+          <div>
+            <div className="card-header flex items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 dark:border-slate-800/60">
+              <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
+                Reservas de Hoje
+              </h3>
+              <button
+                onClick={() => navigate('/reservations')}
+                className="text-xs font-semibold text-[var(--color-primary)] hover:underline"
+              >
+                Agenda
+              </button>
+            </div>
             {todayReservations.length === 0 ? (
-              <div className="text-center py-6 text-xs text-[var(--color-text-muted)]">
-                Nenhuma área comum reservada para a data de hoje.
+              <div className="py-8 text-center flex flex-col items-center justify-center gap-2">
+                <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 mb-1">
+                  <CalendarDays size={20} />
+                </div>
+                <p className="text-xs font-bold text-[var(--color-text)]">Nenhuma reserva para hoje</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] max-w-[220px]">
+                  As áreas comuns estão disponíveis para agendamento dos moradores.
+                </p>
               </div>
             ) : (
-              <div className="divide-y divide-[var(--color-border)]">
+              <div className="space-y-2.5">
                 {todayReservations.map(res => (
-                  <div key={res.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between text-xs">
+                  <div
+                    key={res.id}
+                    className="p-3 rounded-xl bg-slate-50/70 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/50 flex items-center justify-between text-xs"
+                  >
                     <div>
                       <div className="font-bold text-[var(--color-text)] flex items-center gap-1.5">
                         <CalendarDays size={13} className="text-blue-500" />
@@ -365,8 +384,8 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* FEED DE ATIVIDADES: ÚLTIMOS 10 AUDIT LOGS */}
-      <div className="card">
-        <div className="card-header flex items-center justify-between">
+      <div className="card !mb-0 rounded-2xl p-6 border border-slate-200/50 dark:border-slate-800/60 shadow-xs">
+        <div className="card-header flex items-center justify-between pb-3.5 mb-4 border-b border-slate-100 dark:border-slate-800/60">
           <div className="flex items-center gap-2">
             <Activity size={16} className="text-[var(--color-primary)]" />
             <h3 className="card-title text-sm font-bold text-[var(--color-text)]">
@@ -377,7 +396,7 @@ export const Dashboard: React.FC = () => {
             Últimos registros automáticos
           </span>
         </div>
-        <div className="card-body p-0 overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="table">
             <thead>
               <tr>

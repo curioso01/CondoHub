@@ -60,17 +60,17 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
     blueElectric: '#2563EB',
     blueDeep: '#1D4ED8',
     tealNeon: '#06B6D4',
-    gridColor: isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(148, 163, 184, 0.22)',
+    gridColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(148, 163, 184, 0.14)',
     textColor: isDark ? '#94A3B8' : '#64748B',
     textHighlight: isDark ? '#F8FAFC' : '#0F172A',
     cardBg: isDark
       ? 'linear-gradient(155deg, #0B132B 0%, #0F172A 60%, #172554 100%)'
       : 'linear-gradient(155deg, #FFFFFF 0%, #F8FAFC 60%, #F0F9FF 100%)',
     innerCardBg: isDark ? 'rgba(15, 23, 42, 0.55)' : '#FFFFFF',
-    cardBorder: isDark ? 'rgba(56, 189, 248, 0.22)' : 'rgba(2, 132, 199, 0.18)',
+    cardBorder: isDark ? 'rgba(56, 189, 248, 0.16)' : 'rgba(148, 163, 184, 0.22)',
     cardShadow: isDark
-      ? '0 20px 45px -15px rgba(0, 0, 0, 0.7), 0 0 25px -8px rgba(0, 242, 254, 0.14)'
-      : '0 14px 32px -10px rgba(14, 165, 233, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04)'
+      ? '0 20px 45px -15px rgba(0, 0, 0, 0.7), 0 0 25px -8px rgba(0, 242, 254, 0.10)'
+      : '0 8px 24px -8px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03)'
   }), [isDark]);
 
   // 2. Gerador Dinâmico de Dados para cada Granularidade de Período
@@ -589,7 +589,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
       }}
     >
       {/* 1. SEÇÃO SUPERIOR: TÍTULO ESPAÇOSO & STATUS */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 pb-6 border-b border-[var(--color-border)]">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5 pb-6 border-b border-slate-200/60 dark:border-slate-800/60">
         <div className="space-y-2">
           <div className="flex items-center gap-3">
             <span
@@ -622,7 +622,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
         {onNavigateFinancial && (
           <button
             onClick={onNavigateFinancial}
-            className="self-start lg:self-center flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-[var(--color-primary)] border border-[var(--color-primary)]/30 hover:bg-[var(--color-primary)]/10 transition-colors"
+            className="self-start lg:self-center flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-[var(--color-primary)] border border-[var(--color-primary)]/20 hover:bg-[var(--color-primary)]/10 transition-colors shadow-xs"
             title="Abrir detalhes no financeiro"
           >
             <Maximize2 size={14} />
@@ -632,7 +632,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
       </div>
 
       {/* 2. BARRA DE FILTROS DINÂMICOS DE DATA & SELETOR DE MODO DO GRÁFICO */}
-      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 p-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]/60 backdrop-blur-sm">
+      <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 p-4 rounded-xl border border-slate-200/50 dark:border-slate-800/60 bg-white/70 dark:bg-slate-900/50 backdrop-blur-sm shadow-xs">
         {/* GRUPO 1: FILTRO DE PERÍODOS DE DATA (Dia, Quinzena, Mês, Trimestre, Semestre, Anual) */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-2 text-xs font-bold text-[var(--color-text-muted)] shrink-0">
@@ -711,7 +711,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
         {/* Card 1: Arrecadação */}
         <div
-          className="p-5 rounded-xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200"
+          className="p-5 rounded-2xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 shadow-xs"
           style={{
             background: colors.innerCardBg,
             borderColor: colors.cardBorder
@@ -730,7 +730,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[var(--color-border)]/50">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
             <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)] mb-1.5">
               <span>Eficiência de Arrecadação</span>
               <span className="font-bold text-[var(--color-text)]">98.2%</span>
@@ -749,7 +749,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
 
         {/* Card 2: Despesas */}
         <div
-          className="p-5 rounded-xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200"
+          className="p-5 rounded-2xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 shadow-xs"
           style={{
             background: colors.innerCardBg,
             borderColor: colors.cardBorder
@@ -766,7 +766,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[var(--color-border)]/50">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
             <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)] mb-1.5">
               <span>Execução do Orçamento</span>
               <span className="font-bold text-[var(--color-text)]">84.5%</span>
@@ -785,7 +785,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
 
         {/* Card 3: Taxa de Adimplência */}
         <div
-          className="p-5 rounded-xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200"
+          className="p-5 rounded-2xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 shadow-xs"
           style={{
             background: colors.innerCardBg,
             borderColor: colors.cardBorder
@@ -802,7 +802,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[var(--color-border)]/50">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
             <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)] mb-1.5">
               <span>Meta Mínima: 90%</span>
               <span className="font-bold text-emerald-500">+6.8% superado</span>
@@ -821,7 +821,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
 
         {/* Card 4: Saldo em Conta */}
         <div
-          className="p-5 rounded-xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200"
+          className="p-5 rounded-2xl border flex flex-col justify-between transition-all hover:translate-y-[-2px] duration-200 shadow-xs"
           style={{
             background: colors.innerCardBg,
             borderColor: colors.cardBorder
@@ -838,7 +838,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[var(--color-border)]/50">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60">
             <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)] mb-1.5">
               <span>Fundo Reserva: R$ 38.000</span>
               <span className="font-bold text-cyan-400">Ativo</span>
@@ -860,7 +860,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-7">
         {/* GRÁFICO 1: ONDULAÇÃO SUAVE (SPLINE WAVE) OU BARRAS EM CÁPSULA (PILL BARS) */}
         <div
-          className="lg:col-span-2 p-6 sm:p-7 rounded-2xl border flex flex-col justify-between relative overflow-hidden"
+          className="lg:col-span-2 p-6 sm:p-7 rounded-2xl border flex flex-col justify-between relative overflow-hidden shadow-xs"
           style={{
             background: colors.innerCardBg,
             borderColor: colors.cardBorder
@@ -899,13 +899,13 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </div>
           </div>
 
-          {/* Canvas do Gráfico com Altura Ampla (340px) */}
-          <div className="relative w-full h-[340px] my-2">
+          {/* Canvas do Gráfico com Altura Confortável */}
+          <div className="relative w-full h-[300px] my-2">
             <canvas ref={mainChartRef} />
           </div>
 
           {/* Legenda e Notas Informativas de Rodapé com Respiro */}
-          <div className="mt-5 pt-4 border-t border-[var(--color-border)] flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-text-muted)]">
+          <div className="mt-5 pt-4 border-t border-slate-100 dark:border-slate-800/60 flex flex-wrap items-center justify-between gap-3 text-xs text-[var(--color-text-muted)]">
             <div className="flex flex-wrap items-center gap-4">
               <span className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block" />
@@ -925,7 +925,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
 
         {/* GRÁFICO 2: DONUT FUTURISTA COM CENTRO AMPLO E TEXTO AREJADO */}
         <div
-          className="p-6 sm:p-7 rounded-2xl border flex flex-col justify-between relative overflow-hidden"
+          className="p-6 sm:p-7 rounded-2xl border flex flex-col justify-between relative overflow-hidden shadow-xs"
           style={{
             background: colors.innerCardBg,
             borderColor: colors.cardBorder
@@ -956,8 +956,8 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </span>
           </div>
 
-          {/* Canvas do Donut com Altura de 270px e Centro Confortável */}
-          <div className="relative w-full h-[270px] flex items-center justify-center my-auto">
+          {/* Canvas do Donut com Altura Harmoniosa */}
+          <div className="relative w-full h-[260px] flex items-center justify-center my-auto">
             <canvas ref={donutChartRef} />
 
             {/* CENTRO DO DONUT COM TIPOGRAFIA ESPAÇOSA E HIERÁRQUICA */}
@@ -977,7 +977,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-[var(--color-border)] text-center text-xs text-[var(--color-text-muted)]">
+          <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/60 text-center text-xs text-[var(--color-text-muted)]">
             Auditoria automatizada com conciliação bancária diária
           </div>
         </div>
@@ -992,7 +992,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           {/* PILAR 01 - ADIMPLÊNCIA */}
           <div
-            className="p-5 rounded-xl border flex items-center gap-4 transition-all"
+            className="p-4.5 rounded-2xl border flex items-center gap-4 transition-all shadow-xs"
             style={{
               background: colors.innerCardBg,
               borderColor: colors.cardBorder
@@ -1030,7 +1030,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
 
           {/* PILAR 02 - MANUTENÇÕES */}
           <div
-            className="p-5 rounded-xl border flex items-center gap-4 transition-all"
+            className="p-4.5 rounded-2xl border flex items-center gap-4 transition-all shadow-xs"
             style={{
               background: colors.innerCardBg,
               borderColor: colors.cardBorder
@@ -1068,7 +1068,7 @@ export const ModernInfographicCharts: React.FC<ModernInfographicChartsProps> = (
 
           {/* PILAR 03 - RESOLUÇÃO NO PRAZO */}
           <div
-            className="p-5 rounded-xl border flex items-center gap-4 transition-all"
+            className="p-4.5 rounded-2xl border flex items-center gap-4 transition-all shadow-xs"
             style={{
               background: colors.innerCardBg,
               borderColor: colors.cardBorder

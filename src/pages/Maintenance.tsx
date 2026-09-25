@@ -158,14 +158,14 @@ export const Maintenance: React.FC = () => {
             return (
               <div
                 key={col.key}
-                className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl border-t-4 ${col.color} p-3 flex flex-col`}
+                className={`bg-slate-50/80 dark:bg-slate-900/40 border border-slate-200/60 dark:border-slate-800/70 rounded-2xl border-t-4 ${col.color} p-3.5 flex flex-col shadow-xs`}
                 style={{ minHeight: '480px' }}
               >
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[var(--color-border)]">
-                  <span className="text-xs font-bold text-[var(--color-text)]">
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-200/50 dark:border-slate-800/60 px-0.5">
+                  <span className="text-xs font-bold text-[var(--color-text)] tracking-tight">
                     {col.title}
                   </span>
-                  <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-[var(--color-bg)] text-[var(--color-text-muted)]">
+                  <span className="px-2 py-0.5 text-[11px] font-bold rounded-full bg-white dark:bg-slate-800 text-[var(--color-text-muted)] shadow-xs border border-slate-200/50 dark:border-slate-700/50">
                     {colOrders.length}
                   </span>
                 </div>
@@ -178,10 +178,10 @@ export const Maintenance: React.FC = () => {
                         setSelectedOrder(order);
                         setIsOrderDetailsModalOpen(true);
                       }}
-                      className="p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] hover:shadow-md cursor-pointer transition-all text-xs"
+                      className="p-3.5 rounded-xl bg-white dark:bg-slate-800/90 hover:bg-slate-50/60 dark:hover:bg-slate-800 shadow-xs hover:shadow-md border border-slate-200/50 dark:border-slate-700/40 hover:border-blue-400/40 dark:hover:border-blue-500/40 transition-all duration-150 cursor-pointer text-xs group hover:-translate-y-0.5"
                     >
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="font-bold text-[var(--color-primary)] text-[11px]">
+                        <span className="font-bold text-[var(--color-primary)] text-[11px] group-hover:text-blue-600 dark:group-hover:text-cyan-400 transition-colors">
                           {order.id}
                         </span>
                         <Badge
@@ -195,12 +195,12 @@ export const Maintenance: React.FC = () => {
                         </Badge>
                       </div>
 
-                      <div className="font-semibold text-sm text-[var(--color-text)] line-clamp-2 mb-1">
+                      <div className="font-semibold text-sm text-[var(--color-text)] line-clamp-2 mb-2 leading-snug">
                         {order.title}
                       </div>
 
-                      <div className="text-[11px] text-[var(--color-text-muted)] flex items-center justify-between mt-2 pt-2 border-t border-[var(--color-border)]">
-                        <span className="truncate">{order.area}</span>
+                      <div className="text-[11px] text-[var(--color-text-muted)] flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700/40">
+                        <span className="truncate font-medium text-slate-500 dark:text-slate-400">{order.area}</span>
                         {order.estimatedAmount && (
                           <span className="font-bold text-[var(--color-text)]">
                             {security.maskMoney(order.estimatedAmount)}
@@ -211,7 +211,7 @@ export const Maintenance: React.FC = () => {
                   ))}
 
                   {colOrders.length === 0 && (
-                    <div className="py-12 text-center text-xs text-[var(--color-text-muted)] italic">
+                    <div className="py-16 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
                       Nenhuma OS nesta etapa
                     </div>
                   )}
